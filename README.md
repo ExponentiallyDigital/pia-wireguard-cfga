@@ -23,8 +23,8 @@ If you don't want to compile the app from scratch, pre-packaged release archives
 
 Each release contains a compiled, production-ready `.zip` archive containing:
 
-- The optimised Android application (`pia-wireguard-cfga.apk`)
-- Offline documentation (`README.html` and `LICENSE`)
+- The optimised Android application (`pia-wireguard-cfga.apk`) and SHA1 (`pia-wireguard-cfga.sha1`)
+- Offline documentation (`README.html`, `README.md` and `LICENSE`)
 
 ## Interface
 
