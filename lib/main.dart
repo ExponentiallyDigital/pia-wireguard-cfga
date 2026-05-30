@@ -663,6 +663,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 _LogPanel(
                   entries: _log,
                   scrollController: _logScrollCtrl,
+                  onClear: () => setState(() => _log.clear()),
                 ),
               ],
             ),
@@ -844,17 +845,26 @@ class _IconButton extends StatelessWidget {
 // styled container that _InfoCard used. Info lines are teal, error lines
 // are red, matching the old _StatusBar colour scheme exactly.
 // ---------------------------------------------------------------------------
-class _LogPanel extends StatelessWidget {
+class _LogPanel extends StatefulWidget {
   final List<_LogEntry> entries;
   final ScrollController scrollController;
+  final VoidCallback onClear;
 
   const _LogPanel({
     required this.entries,
     required this.scrollController,
+    required this.onClear,
   });
 
   @override
+  State<_LogPanel> createState() => _LogPanelState();
+}
+
+class _LogPanelState extends State<_LogPanel> {
+  @override
   Widget build(BuildContext context) {
+    final entries = widget.entries;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -880,14 +890,22 @@ class _LogPanel extends StatelessWidget {
               const Spacer(),
               if (entries.isNotEmpty)
                 GestureDetector(
-                  onTap: () {
-                    // Clearing the log list is handled by the parent via
-                    // setState, but since _LogPanel is stateless we use a
-                    // workaround: the parent passes an empty list after the
-                    // user taps, so we expose a VoidCallback instead.
-                    // (See _clearLog in parent -- the button below is wired
-                    //  via the onClearLog callback added to this widget.)
-                  },
+                  onTap: widget.onClear,
+                  child: Row(
+                    children: const [
+                      Icon(Icons.delete_outline,
+                          size: 12, color: Color(0xFFFF5C5C)),
+                      SizedBox(width: 6),
+                      Text(
+                        'CLEAR',
+                        style: TextStyle(
+                          color: Color(0xFFFF5C5C),
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -902,46 +920,46 @@ class _LogPanel extends StatelessWidget {
               ),
             )
           else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
-              child: ListView.builder(
-                controller: scrollController,
-                shrinkWrap: true,
-                itemCount: entries.length,
-                itemBuilder: (ctx, i) {
-                  final entry = entries[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          entry.isError
-                              ? Icons.error_outline
-                              : Icons.info_outline,
-                          size: 12,
-                          color: entry.isError
-                              ? const Color(0xFFFF5C5C)
-                              : const Color(0xFF00D4AA),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            entry.message,
-                            style: TextStyle(
-                              color: entry.isError
-                                  ? const Color(0xFFFF5C5C)
-                                  : const Color(0xFF00D4AA),
-                              fontSize: 11,
-                              fontFamily: 'monospace',
-                              height: 1.4,
+            SizedBox(
+              height: 220,
+              child: SingleChildScrollView(
+                controller: widget.scrollController,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: entries.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            entry.isError
+                                ? Icons.error_outline
+                                : Icons.info_outline,
+                            size: 12,
+                            color: entry.isError
+                                ? const Color(0xFFFF5C5C)
+                                : const Color(0xFF00D4AA),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              entry.message,
+                              style: TextStyle(
+                                color: entry.isError
+                                    ? const Color(0xFFFF5C5C)
+                                    : const Color(0xFF00D4AA),
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                                height: 1.4,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
         ],

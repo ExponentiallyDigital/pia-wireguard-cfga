@@ -145,6 +145,9 @@ class PiaService {
         final latency = DateTime.now().difference(start);
         await socket.close();
         results.add(ProbeResult(server: server, latency: latency));
+        // Report successful probe with latency
+        onProgress
+            ?.call('Probe ${server.ip} responded ${latency.inMilliseconds}ms');
       } catch (e) {
         // [LOG] Report each probe failure rather than silently dropping it
         onProgress?.call('Probe ${server.ip} failed: $e');
@@ -324,8 +327,7 @@ class PiaService {
 
       return reg;
     } on TimeoutException {
-      throw Exception(
-          'Key registration request timed out after 10 seconds.');
+      throw Exception('Key registration request timed out after 10 seconds.');
     } finally {
       httpClient.close(force: true);
     }
@@ -399,8 +401,7 @@ class PiaService {
 
     // [LOG] Report selected server, latency, and probe summary
     final bestMs = responding.first.latency!.inMilliseconds;
-    onProgress?.call(
-        'Selected ${bestServer.ip} (${bestServer.cn}) -- '
+    onProgress?.call('Selected ${bestServer.ip} (${bestServer.cn}) -- '
         '${responding.length}/${probeResults.length} servers responded, '
         'best latency ${bestMs}ms');
 
