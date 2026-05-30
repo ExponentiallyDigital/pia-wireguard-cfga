@@ -44,7 +44,7 @@ If you prefer to compile and test the application locally, follow the configurat
 ### Prerequisites
 
 - **Flutter SDK:** version 3.10 or later ([Flutter Installation Guide](https://flutter.dev/docs/get-started/install))
-- **Android SDK / Studio:** configured with Java Development Kit (JDK 17)
+- **Android SDK / Studio:** ([download](https://developer.android.com/studio) and configure with Java Development Kit (JDK 17), install Android SDK Command-line Tools too (check your config with `flutter doctor`)
 - A connected physical Android device (with USB Debugging enabled) or an active Android Virtual Device (AVD) Emulator.
 
 ### 1. Install dependencies
@@ -79,10 +79,10 @@ To create a standalone production compilation targeted for distribution:
 flutter build apk --release
 ```
 
-#### Local output destinations:
+#### Local output destinations
 
-- Standard Flutter Pipeline Archive: build/app/outputs/flutter-apk/app-release.apk
-- Gradle Pipeline Build Output: build/app/outputs/apk/release/pia-wireguard-cfga-release.apk
+- Standard Flutter pipeline archive: build/app/outputs/flutter-apk/app-release.apk
+- Gradle pipeline build output: build/app/outputs/apk/release/pia-wireguard-cfga-release.apk
 
 ### 5. Sideload
 
@@ -127,7 +127,7 @@ AllowedIPs          = 0.0.0.0/0
 The generated config is:
 
 - Displayed in the app for review.
-  \*- Auto-saved to the app's documents directory (only accessible by the app itself).
+- Auto-saved to the app's documents directory (only accessible by the app itself).
 - Shareable via Android's share sheet (use "Save to Files", send via email, etc.).
 - Copyable to the clipboard.
 
@@ -149,7 +149,8 @@ The generated config is:
 ## Development "to do" list
 
 1. Refactor versioning (currently in 2 places)
-2. Create homescreen icon on install (revisit if/when released to Play Store)
+2. Security changes (implement "clear" button, remove conf save to app dir, harden input fields, auto clear on timeout, task switcher preview block) & audit
+3. Release to Play Store
 
 ## Contributing
 
