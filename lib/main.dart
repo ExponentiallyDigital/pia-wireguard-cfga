@@ -502,16 +502,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   ),
                 ],
                 const SizedBox(height: 32),
-                const Text('LOG',
-                    style: TextStyle(
-                        color: Color(0xFF4A5268),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5)),
-                const SizedBox(height: 6),
-                _LogPanel(
-                    entries: _log,
-                    onClearLog: () => setState(() => _log.clear())),
+                InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'LOG',
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: _LogPanel(
+                        entries: _log,
+                        onClearLog: () => setState(() => _log.clear())),
+                  ),
+                ),
                 const SizedBox(height: 20),
               ],
             ),
@@ -685,12 +686,7 @@ class _LogPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: const Color(0xFF1A1D23),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF2E3240))),
+    return SelectionArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

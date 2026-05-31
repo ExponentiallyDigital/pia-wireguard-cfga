@@ -249,6 +249,10 @@ class PiaService {
     }
 
     final bestServer = responding.first.server;
+    final bestLatency = responding.first.latency?.inMilliseconds ?? 0;
+    onProgress?.call(
+        'Selected ${bestServer.ip} ${bestServer.cn.toLowerCase()} ${bestLatency}ms');
+
     final token = await getToken(username, password, onProgress: onProgress);
 
     onProgress?.call('Generating WireGuard keypair...');
