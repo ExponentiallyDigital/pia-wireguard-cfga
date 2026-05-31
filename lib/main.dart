@@ -502,16 +502,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   ),
                 ],
                 const SizedBox(height: 32),
-                if (_log.isNotEmpty) ...[
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _ClearButton(
-                        label: 'CLEAR LOG',
-                        icon: Icons.delete_outline,
-                        onTap: () => setState(() => _log.clear())),
-                  ),
-                  const SizedBox(height: 6),
-                ],
                 InputDecorator(
                   decoration: const InputDecoration(
                     labelText: 'LOG',
