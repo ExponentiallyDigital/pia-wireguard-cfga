@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'pia_service.dart';
 
 void main() => runApp(const PiaWgApp());
@@ -290,17 +291,51 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   decoration: const BoxDecoration(
                       color: _kHighlight, shape: BoxShape.circle)),
               const SizedBox(width: 10),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('PIA WireGuard Config',
+                  const Text('PIA WireGuard Config',
                       style: TextStyle(
                           color: Color(0xFFE8EAF0),
                           fontSize: 16,
                           fontWeight: FontWeight.w600)),
-                  Text('by Exponentially Digital',
-                      style: TextStyle(color: Color(0xFF8892A4), fontSize: 10)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'by ',
+                        style: TextStyle(
+                          color: Color(0xFF8892A4),
+                          fontSize: 10,
+                        ),
+                      ),
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: InkWell(
+                          onTap: () async {
+                            final url = Uri.parse(
+                                'https://www.exponentiallydigital.com');
+                            if (await canLaunchUrl(url)) {
+                              await launchUrl(url,
+                                  mode: LaunchMode.platformDefault);
+                            }
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 2),
+                            child: Text(
+                              'Exponentially Digital',
+                              style: TextStyle(
+                                color: Color(0xFF8892A4),
+                                fontSize: 10,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ],
@@ -309,12 +344,29 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Center(
-                child: FutureBuilder<PackageInfo>(
-                  future: PackageInfo.fromPlatform(),
-                  builder: (context, snap) => Text(
-                      snap.hasData ? 'v${snap.data!.version}' : 'v...',
-                      style: const TextStyle(
-                          color: Color(0xFF8892A4), fontSize: 11)),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: InkWell(
+                    onTap: () async {
+                      // Replace this URL with your actual GitHub repository link
+                      final url =
+                          Uri.parse('https://github.com/ExponentiallyDigital/');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url, mode: LaunchMode.platformDefault);
+                      }
+                    },
+                    child: FutureBuilder<PackageInfo>(
+                      future: PackageInfo.fromPlatform(),
+                      builder: (context, snap) => Text(
+                        snap.hasData ? 'v${snap.data!.version}' : 'v...',
+                        style: const TextStyle(
+                          color: Color(0xFF8892A4),
+                          fontSize: 11,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
