@@ -170,9 +170,10 @@ class PiaService {
       onProgress?.call('Authentication successful.');
       return token;
     } catch (e) {
-      throw Exception('Auth error: $e');
+      // Clean up any internal "Exception:" text if it exists
+      final cleanMsg = e.toString().replaceAll('Exception: ', '');
+      throw 'Auth error: $cleanMsg';
     }
-  }
 
   // Generates WireGuard keypair using secure random bytes and scalar clamping
   (String, String) generateWgKeypair() {

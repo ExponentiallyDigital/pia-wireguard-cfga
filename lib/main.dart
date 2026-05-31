@@ -239,7 +239,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       _logEntry('Config generated successfully.', isSuccess: true);
       _startOrResetTimer();
     } catch (e) {
-      _logEntry('$e', isError: true);
+      final cleanMsg = e.toString().replaceAll('Exception: ', '');
+      _logEntry(cleanMsg, isError: true);
     } finally {
       if (mounted) {
         setState(() => _loading = false);
