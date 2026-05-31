@@ -503,16 +503,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   ),
                 ],
                 const SizedBox(height: 32),
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'LOG',
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: _LogPanel(
-                        entries: _log,
-                        onClearLog: () => setState(() => _log.clear())),
-                  ),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'LOG',
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: _LogPanel(
+                            entries: _log,
+                            onClearLog: () => setState(() => _log.clear())),
+                      ),
+                    ),
+                    if (_log.isNotEmpty)
+                      Positioned(
+                        right: 0,
+                        top: -24,
+                        child: _ClearButton(
+                            label: 'CLEAR LOG',
+                            icon: Icons.delete_outline,
+                            onTap: () => setState(() => _log.clear())),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 20),
               ],
@@ -691,15 +705,6 @@ class _LogPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (entries.isNotEmpty) ...[
-            Align(
-                alignment: Alignment.centerRight,
-                child: _ClearButton(
-                    label: 'CLEAR LOG',
-                    icon: Icons.delete_outline,
-                    onTap: onClearLog)),
-            const SizedBox(height: 10),
-          ],
           if (entries.isEmpty)
             const Text('Ready.',
                 style: TextStyle(
