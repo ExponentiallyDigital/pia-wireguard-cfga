@@ -141,13 +141,26 @@ class PiaService {
       final credentials = base64Encode(utf8.encode('$username:$password'));
       request.headers
           .set(HttpHeaders.authorizationHeader, 'Basic $credentials');
-
       final response = await request.close();
+      // 1. Read the response body payload regardless of the status code
+      final body = await response.transform(utf8.decoder).join();
+      // 2. Handle non-200 status codes with the response body included
       if (response.statusCode != 200) {
-        throw Exception('HTTP ${response.statusCode}');
+        String detailedError = body;
+        try {
+          // Attempt to extract cleaner text if the server responds with a JSON message
+          final parsedJson = jsonDecode(body);
+          if (parsedJson is Map && parsedJson.containsKey('message')) {
+            detailedError = parsedJson['message'];
+          } else if (parsedJson is Map && parsedJson.containsKey('error')) {
+            detailedError = parsedJson['error'];
+          }
+        } catch (_) {
+          // If body is not JSON (plain text or HTML), keep it as-is
+        }
+        throw Exception('HTTP ${response.statusCode} - $detailedError');
       }
 
-      final body = await response.transform(utf8.decoder).join();
       final token =
           (jsonDecode(body) as Map<String, dynamic>)['token'] as String? ?? '';
       if (token.isEmpty) {

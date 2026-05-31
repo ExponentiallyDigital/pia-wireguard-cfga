@@ -397,8 +397,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     hintText: '9.9.9.9, 149.112.112.112',
                     prefixIcon: Icon(Icons.dns_outlined,
                         color: Color(0xFF8892A4), size: 18),
-                    helperText:
-                        'Quad9 default  |  Cloudflare: 1.1.1.1, 1.0.0.1',
+                    helperText: 'Default: Quad9 | Cloudflare: 1.1.1.1, 1.0.0.1',
                     helperStyle: TextStyle(color: _kHighlight, fontSize: 11),
                   ),
                 ),
@@ -506,15 +505,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'LOG',
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: _LogPanel(
-                            entries: _log,
-                            onClearLog: () => setState(() => _log.clear())),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'LOG',
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: _LogPanel(
+                              entries: _log,
+                              onClearLog: () => setState(() => _log.clear())),
+                        ),
                       ),
                     ),
                     if (_log.isNotEmpty)
