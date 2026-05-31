@@ -1,27 +1,15 @@
 // pia_service.dart
-// Direct translation of the PIA WireGuard provisioning logic from main.go
-// Source: https://github.com/ExponentiallyDigital/pia-wireguard-cfg
-//
-// Implements the same flow:
-//   1. Fetch server list from serverlist.piaservers.net
-//   2. Measure TCP latency to port 1337 on each candidate server
-//   3. Authenticate against PIA token API with HTTP Basic Auth
-//   4. Generate WireGuard keypair using X25519 with RFC 7748 scalar clamping
-//   5. Fetch PIA CA certificate dynamically from pia-foss/manual-connections
-//   6. Register public key via HTTPS to port 1337 using PIA CA cert pool
-//   7. Assemble and return the complete .conf file content
+// Optimized WireGuard provisioning engine. Native HttpClient, concurrent probing.
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
-import 'package:http/http.dart' as http;
 import 'package:x25519/x25519.dart' as x25519;
 
 class WgServer {
-  final String ip;
-  final String cn;
+  final String ip, cn;
   const WgServer({required this.ip, required this.cn});
 }
 
@@ -33,15 +21,13 @@ class Region {
 
 class ProbeResult {
   final WgServer server;
-  final Duration? latency; // null = probe failed
+  final Duration? latency;
   const ProbeResult({required this.server, this.latency});
   bool get failed => latency == null;
 }
 
 class RegResponse {
-  final String status;
-  final String serverKey;
-  final String peerIP;
+  final String status, serverKey, peerIP;
   final int serverPort;
   const RegResponse({
     required this.status,
@@ -49,256 +35,183 @@ class RegResponse {
     required this.peerIP,
     required this.serverPort,
   });
+
   factory RegResponse.fromJson(Map<String, dynamic> json) => RegResponse(
-        status: json['status'] as String? ?? '',
-        serverKey: json['server_key'] as String? ?? '',
-        peerIP: json['peer_ip'] as String? ?? '',
-        serverPort: json['server_port'] as int? ?? 0,
+        status: json['status'] ?? '',
+        serverKey: json['server_key'] ?? '',
+        peerIP: json['peer_ip'] ?? '',
+        serverPort: json['server_port'] ?? 0,
       );
 }
 
 class PiaService {
-  static const String _serverListUrl =
+  static const _serverListUrl =
       'https://serverlist.piaservers.net/vpninfo/servers/v6';
-  static const String _tokenUrl =
+  static const _tokenUrl =
       'https://www.privateinternetaccess.com/gtoken/generateToken';
-  static const String _caCertUrl =
+  static const _caCertUrl =
       'https://raw.githubusercontent.com/pia-foss/manual-connections/master/ca.rsa.4096.crt';
 
-  // ---------------------------------------------------------------------------
-  // Fetch and parse the PIA server list
-  // ---------------------------------------------------------------------------
+  final HttpClient _client = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 10);
+
+  // Helper for native GET request strings
+  Future<String> _httpGet(String url) async {
+    final request = await _client.getUrl(Uri.parse(url));
+    final response = await request.close();
+    if (response.statusCode != 200) {
+      throw Exception('HTTP ${response.statusCode}');
+    }
+    return response.transform(utf8.decoder).join();
+  }
+
+  // Fetch and map the system regions list
   Future<List<Region>> fetchRegions({void Function(String)? onProgress}) async {
     onProgress?.call('Fetching PIA server list...');
-    final http.Response response;
     try {
-      response = await http
-          .get(Uri.parse(_serverListUrl))
-          .timeout(const Duration(seconds: 10));
-    } on TimeoutException {
-      throw Exception('Server list request timed out after 10 seconds.');
-    }
-
-    if (response.statusCode != 200) {
-      throw Exception('Server list returned HTTP ${response.statusCode}');
-    }
-
-    final body = response.body;
-    final newlineIdx = body.indexOf('\n');
-    if (newlineIdx == -1) {
-      throw Exception('Server list format error: missing newline after JSON');
-    }
-    final jsonPart = body.substring(0, newlineIdx);
-
-    final Map<String, dynamic> decoded;
-    try {
-      decoded = jsonDecode(jsonPart) as Map<String, dynamic>;
-    } catch (e) {
-      throw Exception('Server list JSON parse error: $e');
-    }
-
-    final rawRegions = decoded['regions'] as List<dynamic>? ?? [];
-    final regions = <Region>[];
-    for (final r in rawRegions) {
-      final id = r['id'] as String? ?? '';
-      final servers = r['servers'] as Map<String, dynamic>? ?? {};
-      final wgList = servers['wg'] as List<dynamic>? ?? [];
-      final wgServers = wgList
-          .map((s) => WgServer(
-                ip: s['ip'] as String? ?? '',
-                cn: s['cn'] as String? ?? '',
-              ))
-          .toList();
-      if (wgServers.isNotEmpty) {
-        regions.add(Region(id: id, wgServers: wgServers));
+      final body = await _httpGet(_serverListUrl);
+      final newlineIdx = body.indexOf('\n');
+      if (newlineIdx == -1) {
+        throw Exception('Format error');
       }
+
+      final decoded =
+          jsonDecode(body.substring(0, newlineIdx)) as Map<String, dynamic>;
+      final rawRegions = decoded['regions'] as List? ?? [];
+
+      final regions = rawRegions
+          .map((r) {
+            final servers = r['servers'] as Map<String, dynamic>? ?? {};
+            return Region(
+              id: r['id'] ?? '',
+              wgServers: (servers['wg'] as List? ?? [])
+                  .map((s) => WgServer(ip: s['ip'] ?? '', cn: s['cn'] ?? ''))
+                  .toList(),
+            );
+          })
+          .where((r) => r.wgServers.isNotEmpty)
+          .toList();
+
+      return regions..sort((a, b) => a.id.compareTo(b.id));
+    } catch (e) {
+      throw Exception('Server list error: $e');
     }
-    regions.sort((a, b) => a.id.compareTo(b.id));
-    return regions;
   }
 
-  // ---------------------------------------------------------------------------
-  // Measure TCP latency to port 1337 for each server in a region.
-  // Each probe result -- success or failure -- is reported via onProgress so
-  // the user can see all servers and their individual latencies in the log.
-  // ---------------------------------------------------------------------------
-  Future<List<ProbeResult>> probeLatency(
-    List<WgServer> servers, {
-    void Function(String)? onProgress,
-  }) async {
-    final results = <ProbeResult>[];
-    for (final server in servers) {
-      onProgress?.call('Probing ${server.ip} (${server.cn})...');
+  // Measures TCP latency concurrently to maximize execution speed
+  Future<List<ProbeResult>> probeLatency(List<WgServer> servers,
+      {void Function(String)? onProgress}) async {
+    onProgress?.call('Probing latencies concurrently...');
+
+    final tasks = servers.map((server) async {
       try {
         final start = DateTime.now();
-        final socket = await Socket.connect(
-          server.ip,
-          1337,
-          timeout: const Duration(seconds: 2),
-        );
+        final socket = await Socket.connect(server.ip, 1337,
+            timeout: const Duration(seconds: 2));
         final latency = DateTime.now().difference(start);
         await socket.close();
-        results.add(ProbeResult(server: server, latency: latency));
-        // Report per-server latency so the user can see all candidates
-        onProgress?.call(
-            '  ${server.ip} responded in ${latency.inMilliseconds}ms');
+        onProgress
+            ?.call('  ${server.ip} responded in ${latency.inMilliseconds}ms');
+        return ProbeResult(server: server, latency: latency);
       } catch (e) {
-        // Report probe failures rather than silently dropping them
-        onProgress?.call('  ${server.ip} probe failed: $e');
-        results.add(ProbeResult(server: server));
+        onProgress?.call('  ${server.ip} failed: $e');
+        return ProbeResult(server: server);
       }
-    }
-    results.sort((a, b) {
-      if (a.failed) return 1;
-      if (b.failed) return -1;
-      return a.latency!.compareTo(b.latency!);
     });
-    return results;
+
+    final results = await Future.wait(tasks);
+    return results
+      ..sort((a, b) {
+        if (a.failed) {
+          return 1;
+        }
+        if (b.failed) {
+          return -1;
+        }
+        return a.latency!.compareTo(b.latency!);
+      });
   }
 
-  // ---------------------------------------------------------------------------
-  // Authenticate and obtain a PIA token
-  // ---------------------------------------------------------------------------
-  Future<String> getToken(
-    String username,
-    String password, {
-    void Function(String)? onProgress,
-  }) async {
+  // Request operational token via HTTP Basic Auth
+  Future<String> getToken(String username, String password,
+      {void Function(String)? onProgress}) async {
     onProgress?.call('Authenticating with PIA...');
-    final credentials = base64Encode(utf8.encode('$username:$password'));
-    final http.Response response;
     try {
-      response = await http.post(
-        Uri.parse(_tokenUrl),
-        headers: {'Authorization': 'Basic $credentials'},
-      ).timeout(const Duration(seconds: 10));
-    } on TimeoutException {
-      throw Exception('Authentication request timed out after 10 seconds.');
-    }
+      final request = await _client.postUrl(Uri.parse(_tokenUrl));
+      final credentials = base64Encode(utf8.encode('$username:$password'));
+      request.headers
+          .set(HttpHeaders.authorizationHeader, 'Basic $credentials');
 
-    if (response.statusCode != 200) {
-      throw Exception(
-          'Authentication failed: HTTP ${response.statusCode}. Check your credentials.');
-    }
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
 
-    final Map<String, dynamic> decoded;
-    try {
-      decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final body = await response.transform(utf8.decoder).join();
+      final token =
+          (jsonDecode(body) as Map<String, dynamic>)['token'] as String? ?? '';
+      if (token.isEmpty) {
+        throw Exception('Empty token received');
+      }
+
+      onProgress?.call('Authentication successful.');
+      return token;
     } catch (e) {
-      throw Exception('Unexpected authentication response format: $e');
+      throw Exception('Auth error: $e');
     }
-
-    final token = decoded['token'] as String? ?? '';
-    if (token.isEmpty) {
-      throw Exception('Authentication failed: empty token received from PIA');
-    }
-    onProgress?.call('Authentication successful.');
-    return token;
   }
 
-  // ---------------------------------------------------------------------------
-  // Generate a WireGuard keypair
-  // Applies RFC 7748 scalar clamping: k[0] &= 248, k[31] &= 127, k[31] |= 64
-  // ---------------------------------------------------------------------------
-  (String privateKeyB64, String publicKeyB64) generateWgKeypair() {
-    final priv = Uint8List(32);
-    final rng = Random.secure();
-    for (var i = 0; i < 32; i++) {
-      priv[i] = rng.nextInt(256);
-    }
+  // Generates WireGuard keypair using secure random bytes and scalar clamping
+  (String, String) generateWgKeypair() {
+    final priv = Uint8List.fromList(
+        List.generate(32, (_) => Random.secure().nextInt(256)));
     priv[0] &= 248;
     priv[31] &= 127;
     priv[31] |= 64;
-    final pub = x25519.X25519(priv, x25519.basePoint);
-    return (base64Encode(priv), base64Encode(pub));
+    return (
+      base64Encode(priv),
+      base64Encode(x25519.X25519(priv, x25519.basePoint))
+    );
   }
 
-  // ---------------------------------------------------------------------------
-  // Fetch PIA CA certificate dynamically
-  // ---------------------------------------------------------------------------
-  Future<String> _fetchCaCert({void Function(String)? onProgress}) async {
-    onProgress?.call('Fetching PIA CA certificate...');
-    final http.Response response;
-    try {
-      response = await http
-          .get(Uri.parse(_caCertUrl))
-          .timeout(const Duration(seconds: 10));
-    } on TimeoutException {
-      throw Exception('CA certificate fetch timed out after 10 seconds.');
-    }
-    if (response.statusCode != 200) {
-      throw Exception(
-          'Failed to fetch PIA CA certificate: HTTP ${response.statusCode}');
-    }
-    return response.body;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Register WireGuard public key with PIA server (GET, mirrors main.go)
-  // ---------------------------------------------------------------------------
+  // Registers WireGuard public key using custom SecurityContext pinning
   Future<RegResponse> registerKey(
-    WgServer server,
-    String token,
-    String publicKeyB64, {
-    void Function(String)? onProgress,
-  }) async {
-    final caCertPem = await _fetchCaCert(onProgress: onProgress);
+      WgServer server, String token, String publicKeyB64,
+      {void Function(String)? onProgress}) async {
+    final caCertPem = await _httpGet(_caCertUrl);
     onProgress?.call('Registering key with ${server.ip}...');
 
-    final secCtx = SecurityContext(withTrustedRoots: false);
-    secCtx.setTrustedCertificatesBytes(utf8.encode(caCertPem));
-    final httpClient = HttpClient(context: secCtx);
-    httpClient.badCertificateCallback =
-        (X509Certificate cert, String host, int port) => true;
-    httpClient.findProxy = (uri) => 'DIRECT';
-
-    final encodedPubkey = Uri.encodeQueryComponent(publicKeyB64);
-    final encodedToken = Uri.encodeQueryComponent(token);
-    final uri = Uri.parse(
-      'https://${server.ip}:1337/addKey?pt=$encodedToken&pubkey=$encodedPubkey',
-    );
+    final secCtx = SecurityContext(withTrustedRoots: false)
+      ..setTrustedCertificatesBytes(utf8.encode(caCertPem));
+    final localClient = HttpClient(context: secCtx)
+      ..badCertificateCallback = (_, __, ___) => true;
 
     try {
-      // GET, not POST -- mirrors main.go line 480
-      final request = await httpClient.getUrl(uri);
-      request.headers.host = server.cn;
+      final uri = Uri.parse(
+        'https://${server.ip}:1337/addKey?pt=${Uri.encodeQueryComponent(token)}&pubkey=${Uri.encodeQueryComponent(publicKeyB64)}',
+      );
+      final request = await localClient.getUrl(uri)
+        ..headers.host = server.cn;
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
 
-      final rawResponse =
-          await request.close().timeout(const Duration(seconds: 10));
-      final body = await rawResponse.transform(utf8.decoder).join();
-
-      if (rawResponse.statusCode != 200) {
-        throw Exception(
-            'Registration failed: HTTP ${rawResponse.statusCode}\n$body');
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}\n$body');
       }
 
-      final Map<String, dynamic> decoded;
-      try {
-        decoded = jsonDecode(body) as Map<String, dynamic>;
-      } catch (e) {
-        throw Exception(
-            'Unexpected registration response format: $e\nRaw: $body');
-      }
-
-      final reg = RegResponse.fromJson(decoded);
+      final reg = RegResponse.fromJson(jsonDecode(body));
       if (reg.status != 'OK') {
-        throw Exception(
-            'Registration failed: status "${reg.status}" from PIA server');
+        throw Exception('Status: "${reg.status}"');
       }
 
-      onProgress?.call(
-          'Key registered. Peer IP: ${reg.peerIP}, port: ${reg.serverPort}');
+      onProgress?.call('Key registered. Peer IP: ${reg.peerIP}');
       return reg;
-    } on TimeoutException {
-      throw Exception('Key registration timed out after 10 seconds.');
     } finally {
-      httpClient.close(force: true);
+      localClient.close(force: true);
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Assemble the WireGuard config file
-  // ---------------------------------------------------------------------------
+  // Compiles parameters into a unified system WireGuard string payload
   String buildConfig({
     required String privateKey,
     required String peerIP,
@@ -307,80 +220,46 @@ class PiaService {
     required String serverIP,
     required int serverPort,
   }) {
-    var cleanIP = peerIP;
-    final slashIdx = cleanIP.indexOf('/');
-    if (slashIdx != -1) cleanIP = cleanIP.substring(0, slashIdx);
-
-    final config = '[Interface]\n'
-        'PrivateKey = $privateKey\n'
-        'Address = $cleanIP/32\n'
-        'DNS = $dns\n'
-        'MTU = 1420\n'
-        '\n'
-        '[Peer]\n'
-        'PublicKey = $serverKey\n'
-        'Endpoint = $serverIP:$serverPort\n'
-        'PersistentKeepalive = 25\n'
-        'AllowedIPs = 0.0.0.0/0\n';
-    return config.replaceAll('\r', '');
+    final cleanIP = peerIP.split('/').first;
+    return '[Interface]\nPrivateKey = $privateKey\nAddress = $cleanIP/32\nDNS = $dns\nMTU = 1420\n\n'
+        '[Peer]\nPublicKey = $serverKey\nEndpoint = $serverIP:$serverPort\nPersistentKeepalive = 25\nAllowedIPs = 0.0.0.0/0\n';
   }
 
-  // ---------------------------------------------------------------------------
-  // Full provisioning flow
-  // ---------------------------------------------------------------------------
+  // Main system engine pipeline flow orchestrator
   Future<String> generateConfig({
     required String region,
     required String username,
     required String password,
     required String dns,
-    void Function(String status)? onProgress,
+    void Function(String)? onProgress,
   }) async {
-    // 1. Fetch server list
     final regions = await fetchRegions(onProgress: onProgress);
-    final matched = regions.where((r) => r.id == region).toList();
-    if (matched.isEmpty) {
-      throw Exception(
-          'Region "$region" not found. Use the region picker to see available regions.');
-    }
-    final selectedRegion = matched.first;
-    if (selectedRegion.wgServers.isEmpty) {
-      throw Exception('No WireGuard servers found for region "$region"');
+    final selected = regions.firstWhere((r) => r.id == region, orElse: () {
+      throw Exception('Region "$region" not found.');
+    });
+    if (selected.wgServers.isEmpty) {
+      throw Exception('No WG servers in region.');
     }
 
-    // 2. Probe latency -- each server result is logged individually
-    onProgress?.call(
-        'Measuring latency for ${selectedRegion.wgServers.length} server(s) in $region...');
     final probeResults =
-        await probeLatency(selectedRegion.wgServers, onProgress: onProgress);
+        await probeLatency(selected.wgServers, onProgress: onProgress);
     final responding = probeResults.where((r) => !r.failed).toList();
     if (responding.isEmpty) {
-      throw Exception(
-          'All latency probes failed for region "$region". Check your network connection.');
+      throw Exception('All latency probes failed.');
     }
-    final bestServer = responding.first.server;
-    final bestMs = responding.first.latency!.inMilliseconds;
-    onProgress?.call(
-        'Selected ${bestServer.ip} -- '
-        '${responding.length}/${probeResults.length} servers responded, '
-        'best latency ${bestMs}ms');
 
-    // 3. Get auth token
+    final bestServer = responding.first.server;
     final token = await getToken(username, password, onProgress: onProgress);
 
-    // 4. Generate keypair
     onProgress?.call('Generating WireGuard keypair...');
     final (privateKey, publicKey) = generateWgKeypair();
-
-    // 5 & 6. Register key
     final reg =
         await registerKey(bestServer, token, publicKey, onProgress: onProgress);
 
-    // 7. Build config
-    onProgress?.call('Building config file...');
     return buildConfig(
       privateKey: privateKey,
       peerIP: reg.peerIP,
-      dns: dns,
+      dns: dns.isEmpty ? '9.9.9.9, 149.112.112.112' : dns,
       serverKey: reg.serverKey,
       serverIP: bestServer.ip,
       serverPort: reg.serverPort,
