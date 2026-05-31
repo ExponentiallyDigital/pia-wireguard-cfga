@@ -179,9 +179,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Future<void> _loadRegions() async {
     setState(() => _loadingRegions = true);
-    _logEntry('Loading regions...');
     try {
-      final regions = await _service.fetchRegions(onProgress: _logEntry);
+      final regions = await _service.fetchRegions(
+          onProgress: _logEntry, activateProgress: true);
       if (!mounted) {
         return;
       }
@@ -353,7 +353,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   style: const TextStyle(
                       color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
                   decoration: const InputDecoration(
-                      labelText: 'PIA Username',
+                      labelText: 'PIA username',
                       hintText: 'e.g. p1234567',
                       prefixIcon: Icon(Icons.person_outline,
                           color: Color(0xFF8892A4), size: 18)),
@@ -367,7 +367,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   style: const TextStyle(
                       color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
                   decoration: InputDecoration(
-                    labelText: 'PIA Password',
+                    labelText: 'PIA password',
                     prefixIcon: const Icon(Icons.lock_outline,
                         color: Color(0xFF8892A4), size: 18),
                     suffixIcon: GestureDetector(
@@ -442,7 +442,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         const SizedBox(width: 12),
                       ],
                       _ClearButton(
-                          label: 'CLEAR',
+                          label: 'CLEAR CREDS.',
                           icon: Icons.delete_outline,
                           onTap: _clearSession),
                     ],
@@ -501,17 +501,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     ],
                   ),
                 ],
-                const SizedBox(height: 32),
-                const Text('LOG',
-                    style: TextStyle(
-                        color: Color(0xFF4A5268),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5)),
-                const SizedBox(height: 6),
-                _LogPanel(
-                    entries: _log,
-                    onClearLog: () => setState(() => _log.clear())),
+                const SizedBox(height: 24),
+                InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'LOG',
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_log.isNotEmpty) ...[
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: _ClearButton(
+                            label: 'CLEAR LOG',
+                            icon: Icons.delete_outline,
+                            onTap: () => setState(() => _log.clear())),
+                            color: const Color(0xFF8892A4),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      _LogPanel(entries: _log),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 20),
               ],
             ),
@@ -526,26 +539,29 @@ class _ClearButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final Color? color;
   const _ClearButton(
-      {required this.label, required this.icon, required this.onTap});
+      {required this.label, required this.icon, required this.onTap, this.color});
 
   @override
   Widget build(BuildContext context) {
+    final buttonColor = color ?? const Color(0xFFFF5C5C);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-            color: const Color(0xFF2A1515),
+            color: buttonColor.withAlpha(30),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFFF5C5C).withAlpha(128))),
+            border: Border.all(color: buttonColor.withAlpha(128))),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: const Color(0xFFFF5C5C)),
+            Icon(icon, size: 12, color: buttonColor),
             const SizedBox(width: 4),
             Text(label,
-                style: const TextStyle(
-                    color: Color(0xFFFF5C5C),
+                style: TextStyle(
+                    color: buttonColor,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.2)),
@@ -680,29 +696,14 @@ class _IconButton extends StatelessWidget {
 
 class _LogPanel extends StatelessWidget {
   final List<_LogEntry> entries;
-  final VoidCallback onClearLog;
-  const _LogPanel({required this.entries, required this.onClearLog});
+  const _LogPanel({required this.entries});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: const Color(0xFF1A1D23),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF2E3240))),
+    return SelectionArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (entries.isNotEmpty) ...[
-            Align(
-                alignment: Alignment.centerRight,
-                child: _ClearButton(
-                    label: 'CLEAR LOG',
-                    icon: Icons.delete_outline,
-                    onTap: onClearLog)),
-            const SizedBox(height: 10),
-          ],
           if (entries.isEmpty)
             const Text('Ready.',
                 style: TextStyle(

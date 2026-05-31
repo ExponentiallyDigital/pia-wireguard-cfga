@@ -66,8 +66,12 @@ class PiaService {
   }
 
   // Fetch and map the system regions list
-  Future<List<Region>> fetchRegions({void Function(String)? onProgress}) async {
-    onProgress?.call('Fetching PIA server list...');
+  Future<List<Region>> fetchRegions(
+      {void Function(String)? onProgress,
+      bool activateProgress = false}) async {
+    if (activateProgress) {
+      onProgress?.call('Fetching PIA server list...');
+    }
     try {
       final body = await _httpGet(_serverListUrl);
       final newlineIdx = body.indexOf('\n');
@@ -100,8 +104,12 @@ class PiaService {
 
   // Measures TCP latency concurrently to maximize execution speed
   Future<List<ProbeResult>> probeLatency(List<WgServer> servers,
-      {void Function(String)? onProgress}) async {
-    onProgress?.call('Probing latencies concurrently...');
+      {String? region, void Function(String)? onProgress}) async {
+    if (region != null) {
+      onProgress?.call('$region latency...');
+    } else {
+      onProgress?.call('Probing latencies concurrently...');
+    }
 
     final tasks = servers.map((server) async {
       try {
@@ -178,6 +186,7 @@ class PiaService {
   Future<RegResponse> registerKey(
       WgServer server, String token, String publicKeyB64,
       {void Function(String)? onProgress}) async {
+    onProgress?.call('Fetching PIA CA certificate...');
     final caCertPem = await _httpGet(_caCertUrl);
     onProgress?.call('Registering key with ${server.ip}...');
 
@@ -233,7 +242,8 @@ class PiaService {
     required String dns,
     void Function(String)? onProgress,
   }) async {
-    final regions = await fetchRegions(onProgress: onProgress);
+    final regions =
+        await fetchRegions(onProgress: onProgress, activateProgress: false);
     final selected = regions.firstWhere((r) => r.id == region, orElse: () {
       throw Exception('Region "$region" not found.');
     });
@@ -241,14 +251,18 @@ class PiaService {
       throw Exception('No WG servers in region.');
     }
 
-    final probeResults =
-        await probeLatency(selected.wgServers, onProgress: onProgress);
+    final probeResults = await probeLatency(selected.wgServers,
+        region: region, onProgress: onProgress);
     final responding = probeResults.where((r) => !r.failed).toList();
     if (responding.isEmpty) {
       throw Exception('All latency probes failed.');
     }
 
     final bestServer = responding.first.server;
+    final bestMs = responding.first.latency?.inMilliseconds ?? 0;
+    onProgress?.call(
+        'Selected ${bestServer.ip} ${bestServer.cn.toLowerCase()} ${bestMs}ms');
+
     final token = await getToken(username, password, onProgress: onProgress);
 
     onProgress?.call('Generating WireGuard keypair...');
