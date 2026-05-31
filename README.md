@@ -19,7 +19,6 @@ Manually creating a PIA WireGuard configuration requires authenticating against 
 - **Native Task-Switcher Protection (`FLAG_SECURE`):** Enforces native OS-level window flags to block third-party screenshot capturing and automatically obfuscates/blanks the app layout view inside the Android Recent Apps / Task Switcher interface.
 - **Input field hardening:** user credential entry textboxes disable predictive dictionary caching, auto-correction tracking assistance, and keyboard learning behaviors, alongside native selection overrides to block background clipboard scraping.
 - **Modern adaptive styling:** fully supports Android 8.0+ Adaptive Icons using a native multi-layered presentation conforming to a dark-mode theme aesthetic (`#12141A`).
-- **Android permissions:** none are requested/required.
 
 ## Pre-built releases
 
@@ -30,7 +29,16 @@ Each release contains a compiled, production-ready `.zip` archive containing:
 - The optimised Android application (`pia-wireguard-cfga.apk`) and SHA1 (`pia-wireguard-cfga.sha1`)
 - Offline documentation (`README.html`, `README.md` and `LICENSE`)
 
-## Interface
+## Using the app
+
+1. Enter a region or click the icon to the right and select from a dynamically updated alpha sorted filterable list of current PIA regions.
+2. Add/paste your PIA userame/password details (entered text cannot be copied from the password field)
+3. Optional - accept the default DNS servers (Quad 9) or enter your choices, use a comma to separate entries.
+4. Click on the "GENERATE CONFIG" button.
+5. After sucessfull PIA authentication your chosen region's config file is displayed in the "GENERATED CONFIG" window. You can select specific text from this window or click "COPY" to send the window contents to the clipboard. Use "SHARE / SAVE" to send the config file to a specific app eg your favorite file system app to save the generated conf file to a location of choice.
+6. Conf files are named per the region name (agreed, PIA isn't consistent with the region name format!)
+7. Above the "GENERATED CONFIG" window there's a "CLEAR" button that removes your WireGuard credentials (config data, PIA username/password) from your device's screen and securely overwrites these variables stored in memory. Next to that there's a countdown timer. After no activity for 3 minutes, your credentials are automatically wiped. The timer is reset when there's in app activity (scrolling, tapping etc).
+8. At the bottom of the screen there's a scrollable "LOG" of processing/activity.
 
 App screen:
 
@@ -153,14 +161,37 @@ The generated configuration data lifecycle is managed under a high-security para
 | `share_plus`        | Share/save config file via Android share sheet                                           |
 | `package_info_plus` | Querying app package metadata dynamically from `pubspec.yaml` to unify version reporting |
 
+## App permissions & OS queries
+
+This app requires specific native system declarations to manage secure API handshakes, latency benchmarking, configuration export workflows, and external documentation routing:
+
+### 1. Hardware & networking permissions (`uses-permission`)
+
+- **Internet Access** (`android.permission.INTERNET`)
+  - **Purpose:** required for secure communication with Private Internet Access (PIA) backend API layers to perform user authentication, dynamically fetch current VPN server endpoints, and request temporary session tokens.
+- **Network connectivity state** (`android.permission.ACCESS_NETWORK_STATE`)
+  - **Purpose:** allows the application to verify active device internet handshakes before launching network operations, preventing unexpected crashes and managing socket timeouts.
+
+### 2. Legacy storage compatibility
+
+- **Write external storage** (`android.permission.WRITE_EXTERNAL_STORAGE`)
+  - **Constraint:** enforced only on legacy operating systems up to **Android 9 / Pie** (`maxSdkVersion="28"`).
+  - **Purpose:** grants isolated clearance to save generated `.conf` WireGuard profiles directly to the device's shared system `Downloads/` directory.
+- **Read external storage** (`android.permission.READ_EXTERNAL_STORAGE`)
+  - **Constraint:** enforced only on platforms up to **Android 12** (`maxSdkVersion="32"`).
+  - **Purpose:** ensures complete file-checking validation can occur during configuration generation and deployment tasks.
+
+### 3. Deep-linking intent queries (`queries`)
+
+- **Browsable HTTPS target protocols** (`android.intent.action.VIEW` + `android.intent.category.BROWSABLE`)
+  - **Purpose:** implemented explicitly for devices running **Android 11 (API 30) or modern versions** to white-list secure deep-links. This grants the internal presentation layout permissions to query and branch out into the host device's native system web browser when users tap external hyperlink text anchors (e.g., source code documentation or developer profiles).
+
 ## Development "to do" list
 
 1. Release to Play Store
 2. Full external app security audit
 3. ADD to docs: onscreen logging added
 4. ADD to docs: replace screenshots
-5. FIX: still can't install over an existing copy of the app, have to manually uninstall first
-6. CHG: review all log messaages
 
 ## Contributing
 
