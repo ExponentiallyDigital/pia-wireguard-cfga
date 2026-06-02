@@ -24,3 +24,4 @@ plugins {
 }
 
 include(":app")
+rootProject.name = "pia_wireguard_cfga"
