@@ -15,8 +15,19 @@ class FakeHttpClient implements HttpClient {
   FakeHttpClient(this.responseFactory);
 
   @override
-  Future<HttpClientRequest> getUrl(Uri url) async =>
-      FakeHttpClientRequest(responseFactory(url, 'GET'));
+  Future<HttpClientRequest> getUrl(Uri url) async {
+    if (url.scheme == 'https' && badCertificateCallback != null) {
+      // Call the callback and respect its return value for certificate pinning
+      final isValid = badCertificateCallback!(
+          FakeX509Certificate('CN=server-cn'),
+          url.host,
+          url.port == 0 ? 443 : url.port);
+      if (!isValid) {
+        throw Exception('Certificate verification failed');
+      }
+    }
+    return FakeHttpClientRequest(responseFactory(url, 'GET'));
+  }
 
   @override
   Future<HttpClientRequest> postUrl(Uri url) async =>
@@ -104,6 +115,16 @@ class FakeHttpHeaders implements HttpHeaders {
 
   @override
   List<String>? operator [](String name) => _values[name.toLowerCase()];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeX509Certificate implements X509Certificate {
+  @override
+  final String subject;
+
+  FakeX509Certificate(this.subject);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
