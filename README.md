@@ -1,5 +1,7 @@
 # pia-wireguard-cfga ![pia-wireguard-cfga](./assets/icon/pia-wireguard-cfga.png)
 
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=alert_status)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga) [![Reliability](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=reliability_rating)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=security_rating)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga) [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=bugs)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga) [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=vulnerabilities)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga)
+
 A native Android GUI app built with Flutter and Dart that generates a ready-to-use WireGuard configuration file for the Private Internet Access (PIA) VPN service. It authenticates with PIA's official provisioning API, selects the lowest-latency server in your chosen region, generates a fresh WireGuard keypair, and allows you to save the complete `.conf` to the clipboard or share/save to a user specified app/location.
 
 This app is a GUI Android APK equivalent of my [Windows 11/Linux command line app](https://github.com/ExponentiallyDigital/pia-wireguard-cfg).
@@ -152,6 +154,14 @@ adb install build/app/outputs/flutter-apk/app-release.apk
 ```
 
 or sideload via your favourite app (I prefer X-plore).
+
+### 6. Dependency pinning
+
+Dependencies are pinned to prevent supply chain vulnerabilities, you may need to generate a fresh android\app\gradle.lockfile file by running (from the project root folder)
+
+```bash
+.\android\gradlew -p android compileDebugSources --write-locks
+```
 
 ## How it works
 
