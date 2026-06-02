@@ -33,16 +33,20 @@ Each release contains a versioned, compiled, production-ready `.zip` archive con
 
 1. Enter a region or click the icon to the right and select from a dynamically updated alpha sorted filterable list of current PIA regions.
 
-<table>
+<table style="width: 100%; border-collapse: collapse; border: none;">
   <tr>
-    <td align="center">
+    <td align="center" style="width: 50%; border: none; padding: 10px;">
       <img src="./images/interface.jpg" alt="Screenshot: pia-wireguard-cfga UI" width="100%">
-      <br>
+    </td>
+    <td align="center" style="width: 50%; border: none; padding: 10px;">
+      <img src="./images/region-selection.jpg" alt="Screenshot: region selection" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td align="center" style="border: none; padding: 5px 10px 10px 10px; vertical-align: top;">
       <strong>PIA WireGuard Config App UI</strong>
     </td>
-    <td align="center">
-      <img src="./images/region-selection.jpg" alt="Screenshot: region selection" width="100%">
-      <br>
+    <td align="center" style="border: none; padding: 5px 10px 10px 10px; vertical-align: top;">
       <strong>Region Selection Screen</strong>
     </td>
   </tr>
@@ -50,13 +54,20 @@ Each release contains a versioned, compiled, production-ready `.zip` archive con
 
 2. Add/paste your PIA username/password details (entered text cannot be copied from the password field)
 
-<table>
+<table style="width: 100%; border-collapse: collapse; border: none;">
   <tr>
-    <td align="center">
-      <img src="./images/interface-fields.jpg" alt="Screenshot: interface fields" width="70%">
-      <br>
+    <td style="width: 25%; border: none;"></td>
+    <td align="center" style="width: 50%; border: none; padding: 10px;">
+      <img src="./images/interface-fields.jpg" alt="Screenshot: interface fields" width="100%">
+    </td>
+    <td style="width: 25%; border: none;"></td>
+  </tr>
+  <tr>
+    <td style="border: none;"></td>
+    <td align="center" style="border: none; padding: 5px 10px 10px 10px; vertical-align: top;">
       <strong>Interface Fields</strong>
     </td>
+    <td style="border: none;"></td>
   </tr>
 </table>
 
@@ -64,13 +75,20 @@ Each release contains a versioned, compiled, production-ready `.zip` archive con
 4. Click on the "GENERATE CONFIG" button.
 5. After successful PIA authentication your chosen region's config file is displayed in the "GENERATED CONFIG" window. You can select specific text from this window or click "COPY" to send the window contents to the clipboard. Use "SHARE / SAVE" to send the config file to a specific app e.g. your favourite file system app to save the generated conf file to a location of choice.
 
-<table>
+<table style="width: 100%; border-collapse: collapse; border: none;">
   <tr>
-    <td align="center">
-      <img src="./images/generated-config.jpg" alt="Screenshot: generated config" width="70%">
-      <br>
+    <td style="width: 25%; border: none;"></td>
+    <td align="center" style="width: 50%; border: none; padding: 10px;">
+      <img src="./images/generated-config.jpg" alt="Screenshot: generated config" width="100%">
+    </td>
+    <td style="width: 25%; border: none;"></td>
+  </tr>
+  <tr>
+    <td style="border: none;"></td>
+    <td align="center" style="border: none; padding: 5px 10px 10px 10px; vertical-align: top;">
       <strong>Generated Config</strong>
     </td>
+    <td style="border: none;"></td>
   </tr>
 </table>
 

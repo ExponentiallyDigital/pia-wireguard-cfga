@@ -349,8 +349,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   child: InkWell(
                     onTap: () async {
                       // Replace this URL with your actual GitHub repository link
-                      final url =
-                          Uri.parse('https://github.com/ExponentiallyDigital/');
+                      final url = Uri.parse(
+                          'https://github.com/ExponentiallyDigital/pia-wireguard-cfga');
                       if (await canLaunchUrl(url)) {
                         await launchUrl(url, mode: LaunchMode.platformDefault);
                       }
