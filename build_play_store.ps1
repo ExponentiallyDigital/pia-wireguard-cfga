@@ -3,7 +3,7 @@ Write-Host "Wiping old caches..." -ForegroundColor Cyan
 flutter clean
 
 Write-Host "Fetching dependencies..." -ForegroundColor Cyan
-flutter pub get --locked
+flutter pub get --enforce-lockfile
 
 Write-Host "Adding icons..." -ForegroundColor Cyan
 dart run flutter_launcher_icons

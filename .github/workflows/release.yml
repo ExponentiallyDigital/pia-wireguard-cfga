@@ -103,7 +103,7 @@ jobs:
       # 4. GET DEPENDENCIES & BUILD THE APK
       - name: Build Flutter APK
         run: |
-          flutter pub get --locked
+          flutter pub get --enforce-lockfile
           dart run flutter_launcher_icons
           flutter build apk --release
 
