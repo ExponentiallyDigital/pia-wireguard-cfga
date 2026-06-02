@@ -49,7 +49,7 @@ jobs:
 
       # Resolves dependencies so SonarQube can accurately map the project
       - name: Fetch Flutter Dependencies
-        run: flutter pub get --locked
+        run: flutter pub get --enforce-lockfile
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
