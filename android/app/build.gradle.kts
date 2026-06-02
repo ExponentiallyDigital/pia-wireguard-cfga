@@ -59,6 +59,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     dependencyLocking {
+        ignoredDependencies.add("io.flutter:*")
         lockAllConfigurations()
     }
     compileOptions {
