@@ -1,7 +1,7 @@
 # pia-wireguard-cfga<img src="./assets/icon/icon.png" alt="PIA WireGuard CFGA" width="150" />
 
-![Release](https://img.shields.io/badge/platform-%20Android%20-blue) ![Release](https://img.shields.io/github/v/release/ExponentiallyDigital/pia-wireguard-cfga) ![Last Commit](https://img.shields.io/github/last-commit/ExponentiallyDigital/pia-wireguard-cfga) ![License](https://img.shields.io/github/license/ExponentiallyDigital/pia-wireguard-cfga) ![Downloads](https://img.shields.io/github/downloads/ExponentiallyDigital/pia-wireguard-cfga/total)
-[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=alert_status)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga) [![Reliability](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=reliability_rating)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=security_rating)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga) [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=bugs)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga) [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=vulnerabilities)](https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga)
+![Release](https://img.shields.io/badge/platform-%20Android%20-blue) ![Release](https://img.shields.io/github/v/release/ExponentiallyDigital/pia-wireguard-cfga) ![Last Commit](https://img.shields.io/github/last-commit/ExponentiallyDigital/pia-wireguard-cfga) ![License](https://img.shields.io/github/license/ExponentiallyDigital/pia-wireguard-cfga) ![Downloads](https://img.shields.io/github/downloads/ExponentiallyDigital/pia-wireguard-cfga/total)<br>
+<a href="https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=alert_status" alt="Quality Gate"></a> <a href="https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=reliability_rating" alt="Reliability"></a> <a href="https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=security_rating" alt="Security Rating"></a> <a href="https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=bugs" alt="Bugs"></a> <a href="https://sonarcloud.io/project/overview?id=ExponentiallyDigital_pia-wireguard-cfga" target="_blank" rel="noopener noreferrer"><img src="https://sonarcloud.io/api/project_badges/measure?project=ExponentiallyDigital_pia-wireguard-cfga&metric=vulnerabilities" alt="Vulnerabilities"></a>
 
 A native Android GUI app built with Flutter and Dart that generates a ready-to-use WireGuard configuration file for the Private Internet Access (PIA) VPN service. It authenticates with PIA's official provisioning API, selects the lowest-latency server in your chosen region, generates a fresh WireGuard keypair, and allows you to save the complete `.conf` to the clipboard or share/save to a user specified app/location.
 
@@ -36,64 +36,36 @@ Each release contains a versioned, compiled, production-ready `.zip` archive con
 
 1. Enter a region or click the icon to the right and select from a dynamically updated alpha sorted filterable list of current PIA regions.
 
-<table style="width: 100%; border-collapse: collapse; border: none;">
-  <tr>
-    <td align="center" style="width: 50%; border: none; padding: 10px;">
-      <img src="./images/interface.jpg" alt="Screenshot: pia-wireguard-cfga UI" width="100%">
-    </td>
-    <td align="center" style="width: 50%; border: none; padding: 10px;">
-      <img src="./images/region-selection.jpg" alt="Screenshot: region selection" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td align="center" style="border: none; padding: 5px 10px 10px 10px; vertical-align: top;">
-      <strong>PIA WireGuard Config App UI</strong>
-    </td>
-    <td align="center" style="border: none; padding: 5px 10px 10px 10px; vertical-align: top;">
-      <strong>Region Selection Screen</strong>
-    </td>
-  </tr>
-</table>
+<div style="display: flex; justify-content: space-between; width: 100%;">
+  <div style="width: 48%; text-align: center; padding: 10px;">
+    <img src="./images/interface.jpg" alt="Screenshot: pia-wireguard-cfga UI" width="100%">
+    <p style="margin-top: 5px; font-weight: bold;">PIA WireGuard Config App UI</p>
+  </div>
+  <div style="width: 48%; text-align: center; padding: 10px;">
+    <img src="./images/region-selection.jpg" alt="Screenshot: region selection" width="100%">
+    <p style="margin-top: 5px; font-weight: bold;">Region Selection Screen</p>
+  </div>
+</div>
 
 2. Add/paste your PIA username/password details (entered text cannot be copied from the password field)
 
-<table style="width: 100%; border-collapse: collapse; border: none;">
-  <tr>
-    <td style="width: 25%; border: none;"></td>
-    <td align="center" style="width: 50%; border: none; padding: 10px;">
-      <img src="./images/interface-fields.jpg" alt="Screenshot: interface fields" width="100%">
-    </td>
-    <td style="width: 25%; border: none;"></td>
-  </tr>
-  <tr>
-    <td style="border: none;"></td>
-    <td align="center" style="border: none; padding: 5px 10px 10px 10px; vertical-align: top;">
-      <strong>Interface Fields</strong>
-    </td>
-    <td style="border: none;"></td>
-  </tr>
-</table>
+<div style="display: flex; justify-content: center; width: 100%;">
+  <div style="width: 50%; text-align: center; padding: 10px;">
+    <img src="./images/interface-fields.jpg" alt="Screenshot: interface fields" width="100%">
+    <p style="margin-top: 5px; font-weight: bold;">Interface Fields</p>
+  </div>
+</div>
 
 3. Optional - accept the default DNS servers (Quad 9) or enter your choices, use a comma to separate entries.
 4. Click on the "GENERATE CONFIG" button.
 5. After successful PIA authentication your chosen region's config file is displayed in the "GENERATED CONFIG" window. You can select specific text from this window or click "COPY" to send the window contents to the clipboard. Use "SHARE / SAVE" to send the config file to a specific app e.g. your favourite file system app to save the generated conf file to a location of choice.
 
-<table style="width: 100%; border-collapse: collapse; border: none;">
-  <tr>
-    <td style="width: 25%; border: none;"></td>
-    <td align="center" style="width: 50%; border: none; padding: 10px;">
-      <img src="./images/generated-config.jpg" alt="Screenshot: generated config" width="100%">
-    </td>
-    <td style="width: 25%; border: none;"></td>
-  </tr>
-  <tr>
-    <td style="border: none;"></td>
-    <td align="center" style="border: none; padding: 5px 10px 10px 10px; vertical-align: top;">
-      <strong>Generated Config</strong>
-    </td>
-    <td style="border: none;"></td>
-  </tr>
-</table>
+<div style="display: flex; justify-content: center; width: 100%;">
+  <div style="width: 50%; text-align: center; padding: 10px;">
+    <img src="./images/generated-config.jpg" alt="Screenshot: generated config" width="100%">
+    <p style="margin-top: 5px; font-weight: bold;">Generated Config</p>
+  </div>
+</div>
 
 6. Conf files are named per the region name (agreed, PIA isn't consistent with the region name format!)
 7. Above the "GENERATED CONFIG" window there's a "CLEAR" button that removes your WireGuard credentials (config data, PIA username/password) from your device's screen and securely overwrites these variables stored in memory. Next to that there's a countdown timer. After no activity for 3 minutes, your credentials are automatically wiped. The timer is reset when there's in app activity (scrolling, tapping etc).
