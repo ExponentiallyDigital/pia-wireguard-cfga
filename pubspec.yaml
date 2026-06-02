@@ -1,6 +1,6 @@
 name: pia_wireguard_cfga
 description: Generates WireGuard config files for PIA VPN
-version: 0.3.20+44
+version: 0.3.21+45
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -27,7 +27,6 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: true
   image_path: "assets/icon/icon.png"
   adaptive_icon_background: "#12141A"
   adaptive_icon_foreground: "assets/icon/icon_foreground.png"
