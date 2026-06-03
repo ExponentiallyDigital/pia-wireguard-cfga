@@ -243,7 +243,7 @@ This app requires specific native system declarations to manage secure API hands
 ## Development "to do" list
 
 1. Fix table display on README: renders fine in VS Code with Markdown Preview Enhanced, but borders are visible on GitHub, and pandoc HTML version has horizintal lines above/below tables
-2. Release to Play Store - needs 12 testers over 14 continuous days...
+2. Release to Play Store - needs 12 testers over 14 continuous days
 
 ## Contributing
 
