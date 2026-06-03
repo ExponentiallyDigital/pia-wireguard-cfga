@@ -2,10 +2,10 @@ name: Package Addon
 
 on:
   push:
-    tags:
-      - "v*"
     branches:
-      - main
+      - main # Sonar runs on main branch commits only
+    tags:
+      - "v*" # Release pipeline runs on tags
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -21,18 +21,23 @@ env:
 jobs:
   # ==========================================
   # JOB 1: SONARQUBE ANALYSIS
-  # Runs on main pushes, PRs, tags, and manual triggers
+  # Runs on: main commits, PRs, and manual triggers only
+  # Does NOT run on tag pushes (release job is self-contained)
   # ==========================================
   sonarqube:
     name: SonarQube Analysis
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Shallow clones disabled for better relevancy of analysis
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -46,7 +51,6 @@ jobs:
           channel: "stable"
           cache: true
 
-      # Resolves dependencies so SonarQube can accurately map the project
       - name: Fetch Flutter Dependencies
         run: flutter pub get --enforce-lockfile
 
@@ -60,14 +64,17 @@ jobs:
 
   # ==========================================
   # JOB 2: BUILD AND RELEASE
-  # ONLY runs when a tag is pushed (v*) or manually dispatched
+  # Runs on: tag pushes (v*) and manual triggers only
+  # Self-contained: does not depend on the Sonar job
   # ==========================================
   release:
     name: Build and Release
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -96,6 +103,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "Missing KEYSTORE_BASE64" && exit 1; fi
           echo "$KEYSTORE_BASE64" | base64 --decode > android/release.jks
           cat > android/key.properties <<EOF
           storeFile=../release.jks
@@ -119,13 +127,17 @@ jobs:
       - name: Create addon directory and assets
         run: |
           ADDON="${{ github.event.repository.name }}"
+          VERSION="${GITHUB_REF_NAME}"
           mkdir -p build/$ADDON
 
-          pandoc README.md -f gfm -t html -s --self-contained -o build/$ADDON/README.html
+          # Strip badges and inject version under the title
+          grep -v 'img.shields.io\|sonarcloud.io/api/project_badges' README.md \
+            | sed "s/^# \(.*\)/# \1\n\n**Version:** ${VERSION}/" \
+            > /tmp/README_clean.md
+
+          pandoc /tmp/README_clean.md -f gfm -t html -s -o build/$ADDON/README.html
 
           cp LICENSE build/$ADDON/
-          cp README.md build/$ADDON/
-
           cp build/app/outputs/flutter-apk/app-release.apk build/$ADDON/pia-wireguard-cfga.apk
           cp build/app/outputs/flutter-apk/app-release.apk.sha1 build/$ADDON/pia-wireguard-cfga.sha1
 
