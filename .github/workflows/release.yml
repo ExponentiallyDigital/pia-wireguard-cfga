@@ -135,7 +135,7 @@ jobs:
             | sed "s/^# \(.*\)/# \1\n\n**Version:** ${VERSION}/" \
             > /tmp/README_clean.md
 
-          pandoc /tmp/README_clean.md -f gfm -t html -s -o build/$ADDON/README.html
+          pandoc /tmp/README_clean.md -f gfm -t html -s --self-contained -o build/$ADDON/README.html
 
           cp LICENSE build/$ADDON/
           cp build/app/outputs/flutter-apk/app-release.apk build/$ADDON/pia-wireguard-cfga.apk
