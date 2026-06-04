@@ -102,13 +102,18 @@ jobs:
       - name: Fetch dependencies
         run: flutter pub get --enforce-lockfile
 
-      - name: Build release APK for MobSF
-        run: flutter build apk --release
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
+      # Debug build intentional — avoids needing keystore secrets in this job.
+      # MobSF static analysis does not require a release-signed APK.
+      - name: Build debug APK for MobSF
+        run: flutter build apk --debug
 
       - name: Run mobsfscan
         uses: MobSF/mobsfscan@main
         with:
-          args: "build/app/outputs/flutter-apk/app-release.apk --sarif --output mobsfscan.sarif || true"
+          args: "build/app/outputs/flutter-apk/app-debug.apk --sarif --output mobsfscan.sarif || true"
 
       - name: Upload MobSF results to Security tab
         uses: github/codeql-action/upload-sarif@v3
