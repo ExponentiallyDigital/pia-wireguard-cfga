@@ -82,7 +82,7 @@ jobs:
   osv-scan:
     name: OSV dependency scan
     if: github.event_name == 'push' || github.event_name == 'schedule'
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2  # v2.3.8
     with:
       # Scan repo root recursively — matches `osv-scanner .` locally.
       # OSV auto-discovery finds pubspec.lock but not android/app/gradle.lockfile
@@ -138,7 +138,7 @@ jobs:
           args: "build/app/outputs/flutter-apk/app-debug.apk --sarif --output mobsfscan.sarif || true"
 
       - name: Upload MobSF results to Security tab
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@c35d1b164463ee62a100735382aaaa525c5d3496  # codeql-bundle-v2.25.6
         with:
           sarif_file: mobsfscan.sarif
 
@@ -170,7 +170,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@c35d1b164463ee62a100735382aaaa525c5d3496  # codeql-bundle-v2.25.6
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -202,6 +202,6 @@ jobs:
         run: flutter build apk --debug
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@c35d1b164463ee62a100735382aaaa525c5d3496  # codeql-bundle-v2.25.6
         with:
           category: "/language:${{ matrix.language }}"

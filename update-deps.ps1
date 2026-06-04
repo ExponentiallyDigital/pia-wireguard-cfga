@@ -90,7 +90,7 @@ foreach ($file in $files) {
     $fileChanged = $false
 
     foreach ($line in $lines) {
-        if ($line -match '^(\s*(?:-\s*)?uses:\s*)([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([^\s#]+)(\s*#.*)?$') {
+        if ($line -match '^(\s*(?:-\s*)?uses:\s*)([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_./-]+)?)@([^\s#]+)(\s*#.*)?$') {
             $prefix = $Matches[1]
             $action = $Matches[2]
 
@@ -100,13 +100,17 @@ foreach ($file in $files) {
                 continue
             }
 
-            $latestTag = Get-LatestTag -Action $action
+            # Split owner/repo from any subpath (e.g. github/codeql-action/upload-sarif)
+            $parts = $action -split '/', 3
+            $repo  = $parts[0] + '/' + $parts[1]
+
+            $latestTag = Get-LatestTag -Action $repo
             if ($null -eq $latestTag) {
                 $newLines.Add($line)
                 continue
             }
 
-            $sha = Get-CommitSha -Action $action -Ref $latestTag
+            $sha = Get-CommitSha -Action $repo -Ref $latestTag
             if ($null -eq $sha) {
                 $newLines.Add($line)
                 continue
