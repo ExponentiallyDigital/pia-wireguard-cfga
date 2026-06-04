@@ -261,8 +261,9 @@ This app requires specific native system declarations to manage secure API hands
 11. DONE fixup html intermediary file name (caused resultant doc title issue)
 12. add SBOM as a release artifact (Syft)
 13. add how to privately report a security vulnerability (enabled in GitHub)
-14. implement "renovate" to replace tags with SHAs
+14. DONE implement local PS1 app to replace tags with SHAs
 15. switch from SHA-1 to SHA-256 for integrity verification
+16. DONE enable dependabot
 
 ## Build chain & utility notes
 
