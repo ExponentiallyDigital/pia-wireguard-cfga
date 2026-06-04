@@ -1,0 +1,56 @@
+name: "Security dependency scan"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  push:
+    branches:
+      - main # ← Change to 'master' if default branch is master
+      # - develop     # other branches if needed
+
+  workflow_dispatch: # Allows manual run from GitHub UI
+
+permissions:
+  contents: read
+  security-events: write # Needed for OSV-Scanner SARIF upload (shows nicely in Security tab)
+
+jobs:
+  security-scan:
+    name: Dependency security scan
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          # Fetch full history for better dependency diffing
+          fetch-depth: 0
+
+      # ======================
+      # 1. OSV-Scanner
+      # ======================
+      - name: Run OSV-scanner
+        uses: google/osv-scanner-action@v2
+        with:
+          scan-args: |-
+            --format sarif
+            --output osv-results.sarif
+            .
+        # OSV-Scanner works great with pubspec.lock automatically
+
+      - name: Upload OSV scan results to GitHub security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: osv-results.sarif
+
+      # ======================
+      # 2. Dependency Review
+      # ======================
+      - name: Dependency review
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high # Options: low, medium, high, critical
+          # fail-on-scopes: runtime       # Only runtime dependencies (recommended for security apps)
+          # allow-licenses: MIT, Apache-2.0, BSD-3-Clause, ISC
+          # deny-licenses: GPL-2.0, AGPL-3.0, MPL-2.0
+          # comment-summary-in-pr: always

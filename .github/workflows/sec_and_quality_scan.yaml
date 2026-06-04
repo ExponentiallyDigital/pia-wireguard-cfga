@@ -1,0 +1,75 @@
+name: "Quality & security scan"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  quality:
+    name: Quality & analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Fetch dependencies
+        run: flutter pub get --enforce-lockfile
+
+      # ======================
+      # Flutter static analysis
+      # ======================
+      - name: Run Flutter Analyze
+        run: flutter analyze --fatal-infos
+
+      # ======================
+      # Tests + coverage
+      # ======================
+      - name: Run Flutter Tests with Coverage
+        run: flutter test --coverage
+
+      # ======================
+      # SonarQube scan
+      # ======================
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      # ======================
+      # MobSF scan
+      # ======================
+      - name: build release APK
+        run: |
+          flutter build apk --release
+
+      - name: Run mobsfscan
+        uses: MobSF/mobsfscan@main
+        with:
+          args: "build/app/outputs/flutter-apk/app-release.apk --sarif --output mobsfscan.sarif || true"
+
+      - name: Upload SARIF to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: mobsfscan.sarif

@@ -1,13 +1,9 @@
-name: Package Addon
+name: "Build and release"
 
 on:
   push:
-    branches:
-      - main # Sonar runs on main branch commits only
     tags:
-      - "v*" # Release pipeline runs on tags
-  pull_request:
-    types: [opened, synchronize, reopened]
+      - "v*"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -19,56 +15,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  # ==========================================
-  # JOB 1: SONARQUBE ANALYSIS
-  # Runs on: main commits, PRs, and manual triggers only
-  # Does NOT run on tag pushes (release job is self-contained)
-  # ==========================================
-  sonarqube:
-    name: SonarQube Analysis
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "zulu"
-          java-version: "17"
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: "stable"
-          cache: true
-
-      - name: Fetch Flutter Dependencies
-        run: flutter pub get --enforce-lockfile
-
-      - name: Run Flutter Tests with Coverage
-        run: flutter test --coverage
-
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  # ==========================================
-  # JOB 2: BUILD AND RELEASE
-  # Runs on: tag pushes (v*) and manual triggers only
-  # Self-contained: does not depend on the Sonar job
-  # ==========================================
   release:
-    name: Build and Release
+    name: Build and release
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -76,26 +24,23 @@ jobs:
       startsWith(github.ref, 'refs/tags/v') ||
       github.event_name == 'workflow_dispatch'
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 1. SET UP JAVA
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: "17"
 
-      # 2. SET UP FLUTTER
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: "stable"
           cache: true
 
-      # 3. DECODE KEYSTORE
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -112,51 +57,45 @@ jobs:
           keyPassword=$KEY_PASSWORD
           EOF
 
-      # 4. GET DEPENDENCIES & BUILD THE APK
       - name: Build Flutter APK
         run: |
           flutter pub get --enforce-lockfile
           dart run flutter_launcher_icons
           flutter build apk --release
 
-      # 5. INSTALL PANDOC
       - name: Install Pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
 
-      # 6. CREATE STAGING DIRECTORY & GENERATE HTML
-      - name: Create addon directory and assets
+      - name: Create release package
         run: |
           ADDON="${{ github.event.repository.name }}"
           VERSION="${GITHUB_REF_NAME}"
-          mkdir -p build/$ADDON
+          mkdir -p build/$PACKAGE
 
-          # Strip badges and inject version under the title
+          # Strip badges and inject version under the README.html title
           grep -v 'img.shields.io\|sonarcloud.io/api/project_badges' README.md \
             | sed "s/^# \(.*\)/# \1\n\n**Version:** ${VERSION}/" \
-            > /tmp/README_clean.md
+            > /tmp/README.md
 
-          pandoc /tmp/README_clean.md -f gfm -t html -s --self-contained -o build/$ADDON/README.html
+          pandoc /tmp/README.md -f gfm -t html -s --self-contained -o build/$PACKAGE/README.html
 
-          cp LICENSE build/$ADDON/
-          cp build/app/outputs/flutter-apk/app-release.apk build/$ADDON/pia-wireguard-cfga.apk
-          cp build/app/outputs/flutter-apk/app-release.apk.sha1 build/$ADDON/pia-wireguard-cfga.sha1
+          cp LICENSE build/$PACKAGE/
+          cp build/app/outputs/flutter-apk/app-release.apk build/$PACKAGE/pia-wireguard-cfga.apk
+          cp build/app/outputs/flutter-apk/app-release.apk.sha1 build/$PACKAGE/pia-wireguard-cfga.sha1
 
-      # 7. CREATE ZIP ARCHIVE
       - name: Create ZIP
         run: |
           ADDON="${{ github.event.repository.name }}"
           cd build
-          zip -r "$ADDON-${GITHUB_REF_NAME}.zip" "$ADDON"
+          zip -r "$PACKAGE-${GITHUB_REF_NAME}.zip" "$PACKAGE"
 
-      # 8. DRY RUN NOTICE
       - name: Dry run notice
         if: ${{ github.event.inputs.dry_run == 'true' }}
         run: echo "Dry run completed -- no release was created."
 
-      # 9. UPLOAD TO GITHUB RELEASES
-      - name: Upload Release Asset
+      - name: Upload release asset
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe
         with:
           files: build/${{ github.event.repository.name }}-${{ github.ref_name }}.zip
         env:

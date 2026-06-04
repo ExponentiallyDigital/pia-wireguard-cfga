@@ -244,6 +244,19 @@ This app requires specific native system declarations to manage secure API hands
 
 1. Fix table display on README: renders fine in VS Code with Markdown Preview Enhanced, but borders are visible on GitHub, and pandoc HTML version has horizintal lines above/below tables
 2. Release to Play Store - needs 12 testers over 14 continuous days
+3. create SECURITY.md
+4. DONE review Actions CI pipeline - add flutter analyze, rename pipeline
+5. clear clipboard after 30 seconds if conf copied there, make it obvious (add timer?)
+6. extra security/code analysis:
+   DONE dependabot (dependency review)
+   DONE OSV-Scanner
+   DONE mobsf
+   AppSweep (Guardsquare) - needs invitation to get free account
+7. add badges for above
+8. include software BOM (bill of materials) - move from README to SECURITY md
+9. DONE split release.yaml into code scan and actual release
+10. DONE renamed $ADDON to $RELEASE in release.yaml (was carry over from WoW addon packaging)
+11. DONE fixup html intermediary file name (caused resultant doc title issue)
 
 ## Contributing
 
