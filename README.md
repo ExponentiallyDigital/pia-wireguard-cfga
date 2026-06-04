@@ -258,6 +258,16 @@ This app requires specific native system declarations to manage secure API hands
 10. DONE renamed $ADDON to $RELEASE in release.yaml (was carry over from WoW addon packaging)
 11. DONE fixup html intermediary file name (caused resultant doc title issue)
 
+## Fixes
+
+- If OSV-Scanner reports build chain vulnerabilities caused by superceeded packages run
+
+```cmd
+flutter upgrade
+flutter pub upgrade
+.\android\gradlew -p android :dependencies :app:dependencies --write-locks
+```
+
 ## Contributing
 
 Contributions are welcome. To contribute:
