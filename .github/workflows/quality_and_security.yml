@@ -4,19 +4,27 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "25 17 * * 1" # Weekly on Monday — catches newly published CVEs
 
 permissions:
   contents: read
   security-events: write
   actions: read
+  packages: read
 
 jobs:
   # ============================================================
   # Job 1: Static analysis, tests, and code quality
+  # Push to main only — not on PRs or scheduled runs
   # ============================================================
   quality:
     name: Quality & static analysis
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -65,9 +73,12 @@ jobs:
   # workflow, not a composite action, so it cannot be a step.
   # Use osv-scanner-reusable.yml (not the -pr variant, which
   # diffs against a base branch and requires a PR context).
+  # Push to main only — use osv-scanner-reusable-pr.yml for PRs
+  # if dependency diffing is wanted in future.
   # ============================================================
   osv-scan:
     name: OSV dependency scan
+    if: github.event_name == 'push' || github.event_name == 'schedule'
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8
     with:
       # Scan repo root recursively — matches `osv-scanner .` locally.
@@ -83,11 +94,12 @@ jobs:
 
   # ============================================================
   # Job 3: Mobile security scanning (MobSF)
-  # Builds the APK and runs static mobile analysis
+  # Push to main only — not on PRs or scheduled runs
   # ============================================================
   security:
     name: MobSF security scan
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -126,3 +138,47 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: mobsfscan.sarif
+
+  # ============================================================
+  # Job 4: CodeQL analysis
+  # Runs on push, PRs, and weekly schedule.
+  # Two languages analysed in parallel via matrix:
+  #   - actions: scans the GitHub Actions workflow files
+  #   - java-kotlin: scans the Android wrapper code
+  # Dart/Flutter is not yet a supported CodeQL language.
+  #
+  # If java-kotlin autobuild fails, change its build-mode to
+  # "manual" and add Flutter + Java setup steps before the
+  # "Perform CodeQL analysis" step (same pattern as the MobSF
+  # job above).
+  # ============================================================
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: java-kotlin
+            build-mode: autobuild
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
