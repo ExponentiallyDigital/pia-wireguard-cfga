@@ -148,12 +148,6 @@ jobs:
   # Two languages analysed in parallel via matrix:
   #   - actions: scans the GitHub Actions workflow files
   #   - java-kotlin: scans the Android wrapper code
-  # Dart/Flutter is not yet a supported CodeQL language.
-  #
-  # If java-kotlin autobuild fails, change its build-mode to
-  # "manual" and add Flutter + Java setup steps before the
-  # "Perform CodeQL analysis" step (same pattern as the MobSF
-  # job above).
   # ============================================================
   codeql:
     name: CodeQL (${{ matrix.language }})
@@ -170,7 +164,7 @@ jobs:
           - language: actions
             build-mode: none
           - language: java-kotlin
-            build-mode: manual # CHANGED: Changed from autobuild to manual
+            build-mode: manual # "autobuild" fails :/
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -203,13 +197,9 @@ jobs:
         if: matrix.language == 'java-kotlin'
         run: flutter pub get --enforce-lockfile
 
-      #      - name: Generate launcher icons
-      #        run: dart run flutter_launcher_icons
-
       - name: Build Android app to compile Java/Kotlin for CodeQL
         if: matrix.language == 'java-kotlin'
         run: flutter build apk --debug
-      # ==========================================================
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3
