@@ -157,135 +157,103 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 20,
-        right: 20,
-        top: 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            _step == 0 ? 'ROUTER SSH LOGIN' : 'SELECT WIREGUARD SLOT',
-            style: const TextStyle(
-                color: Color(0xFF00D4AA),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5),
-          ),
-          const SizedBox(height: 20),
-          if (_step == 0) ...[
-            TextFormField(
-              controller: _ipCtrl,
+    // Wrap with SingleChildScrollView so the keyboard doesn't cause overflow when typing credentials
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0), // Standardized uniform padding for a centered dialog box
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _step == 0 ? 'ROUTER SSH LOGIN' : 'SELECT WIREGUARD SLOT',
               style: const TextStyle(
-                  color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
-              decoration: const InputDecoration(
-                  labelText: 'Router IP',
-                  prefixIcon:
-                      Icon(Icons.router, color: Color(0xFF8892A4), size: 18)),
+                  color: Color(0xFF00D4AA),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5),
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _userCtrl,
-              style: const TextStyle(
-                  color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
-              decoration: const InputDecoration(
-                  labelText: 'SSH Username',
-                  prefixIcon:
-                      Icon(Icons.person, color: Color(0xFF8892A4), size: 18)),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _passCtrl,
-              obscureText: true,
-              style: const TextStyle(
-                  color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
-              decoration: const InputDecoration(
-                  labelText: 'SSH Password',
-                  prefixIcon:
-                      Icon(Icons.lock, color: Color(0xFF8892A4), size: 18)),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loading ? null : _fetchSlots,
-              child: _loading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Color(0xFF12141A)))
+            const SizedBox(height: 20),
+
+            if (_step == 0) ...[
+              TextFormField(
+                controller: _ipCtrl,
+                style: const TextStyle(color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
+                decoration: const InputDecoration(labelText: 'Router IP', prefixIcon: Icon(Icons.router, color: Color(0xFF8892A4), size: 18)),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _userCtrl,
+                style: const TextStyle(color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
+                decoration: const InputDecoration(labelText: 'SSH Username', prefixIcon: Icon(Icons.person, color: Color(0xFF8892A4), size: 18)),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passCtrl,
+                obscureText: true,
+                style: const TextStyle(color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
+                decoration: const InputDecoration(labelText: 'SSH Password', prefixIcon: Icon(Icons.lock, color: Color(0xFF8892A4), size: 18)),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loading ? null : _fetchSlots,
+                child: _loading 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF12141A)))
                   : const Text('CONNECT & SCAN NVRAM'),
-            ),
-          ] else ...[
-            Container(
-              decoration: BoxDecoration(
+              ),
+            ] else ...[
+              Container(
+                decoration: BoxDecoration(
                   color: const Color(0xFF1E2128),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF2E3240))),
-              child: Column(
-                children: _slots.entries.map((entry) {
-                  final slotNum = entry.key;
-                  final desc =
-                      entry.value.isEmpty ? '(Empty Slot)' : entry.value;
-
-                  // Using a custom row layout to avoid Flutter 3.32+ Radio deprecations
-                  return InkWell(
-                    onTap: () => setState(() => _selectedSlot = slotNum),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 16),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _selectedSlot == slotNum
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
-                            color: const Color(0xFF00D4AA),
-                            size: 20,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('wgc$slotNum',
-                                    style: const TextStyle(
-                                        color: Color(0xFF00D4AA),
-                                        fontFamily: 'monospace',
-                                        fontWeight: FontWeight.bold)),
-                                Text(desc,
-                                    style: const TextStyle(
-                                        color: Color(0xFF8892A4),
-                                        fontSize: 12)),
-                              ],
+                  border: Border.all(color: const Color(0xFF2E3240))
+                ),
+                child: Column(
+                  children: _slots.entries.map((entry) {
+                    final slotNum = entry.key;
+                    final desc = entry.value.isEmpty ? '(Empty Slot)' : entry.value;
+                    
+                    return InkWell(
+                      onTap: () => setState(() => _selectedSlot = slotNum),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _selectedSlot == slotNum 
+                                  ? Icons.radio_button_checked 
+                                  : Icons.radio_button_unchecked,
+                              color: const Color(0xFF00D4AA),
+                              size: 20,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('wgc$slotNum', style: const TextStyle(color: Color(0xFF00D4AA), fontFamily: 'monospace', fontWeight: FontWeight.bold)),
+                                  Text(desc, style: const TextStyle(color: Color(0xFF8892A4), fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed:
-                  (_loading || _selectedSlot == -1) ? null : _pushToRouter,
-              child: _loading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Color(0xFF12141A)))
-                  : const Text('CONFIRM PUSH TO ROUTER & ACTIVATE'),
-            ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: (_loading || _selectedSlot == -1) ? null : _pushToRouter,
+                child: _loading 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF12141A)))
+                  : const Text('CONFIRM PUSH TO ROUTER'),
+              ),
+            ],
+            // Removed the extra spacer or variable bottom viewport padding needed by bottom sheets
           ],
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
     );
   }
-}

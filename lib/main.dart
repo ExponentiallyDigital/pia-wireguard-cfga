@@ -621,17 +621,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showRouterPushSheet() {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      backgroundColor: const Color(0xFF1A1D23),
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      isScrollControlled: true,
-      builder: (ctx) => RouterPushSheet(
-        // Changed from _RouterPushSheet
-        config: _generatedConfig!,
-        regionId: _regionCtrl.text.trim(),
-        onLog: _logEntry,
+      barrierDismissible: true, // Allows tapping outside the box to close it
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1D23),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: RouterPushSheet(
+          config: _generatedConfig!,
+          regionId: _regionCtrl.text.trim(),
+          onLog: _logEntry,
+        ),
       ),
     );
   }
