@@ -132,23 +132,52 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         onPasswordRequest: () => _passCtrl.text,
       );
       await client.authenticated;
+      // Determine currently active WireGuard client
+      int? activeSlot;
 
-      // --- Step 1: Disable kill switch (NVRAM only) ---
-      // Do NOT call service restart_firewall here. On Merlin, restart_firewall
-      // internally triggers restart_wgc, which would tear down any running tunnel
-      // and process all enable flags — stopping WGC slots set to enable=0.
-      // Writing enforce=0 to NVRAM is sufficient; Merlin reads it when the
-      // tunnel starts in Step 4 below.
-      widget.onLog('Disabling kill switch (wgc${slot}_enforce)...');
-      await client.run('nvram set wgc${slot}_enforce=0');
-      await client.run('nvram commit');
-      killSwitchDisabled = true;
-      widget.onLog('Kill switch disabled.');
+      for (int i = 1; i <= 5; i++) {
+        final enabled =
+            utf8.decode(await client.run('nvram get wgc${i}_enable')).trim();
+
+        if (enabled == '1') {
+          activeSlot = i;
+          break;
+        }
+      }
+
+      widget.onLog(
+        activeSlot != null
+            ? 'Current active WireGuard interface: wgc$activeSlot'
+            : 'No active WireGuard interface detected.',
+      );
+
+      // --- Step 1: Disable kill switch on CURRENTLY ACTIVE tunnel ---
+      if (activeSlot != null) {
+        widget.onLog(
+            'Disabling kill switch on active interface wgc$activeSlot...');
+
+        await client.run('nvram set wgc${activeSlot}_enforce=0');
+        await client.run('nvram commit');
+
+        // Apply immediately
+        await client.run('service restart_wgc');
+
+        killSwitchDisabled = true;
+
+        widget
+            .onLog('Kill switch disabled on active interface wgc$activeSlot.');
+      }
 
       // --- Step 2: Write NVRAM variables ---
       for (int i = 1; i <= 5; i++) {
         await client.run('nvram set wgc${i}_enable="${i == slot ? "1" : "0"}"');
       }
+
+      // Ensure target slot is enabled
+      await client.run('nvram set wgc${slot}_enable=1');
+
+      // Ensure kill switch is enabled on the target slot
+      await client.run('nvram set wgc${slot}_enforce=1');
       await client.run('nvram set wgc${slot}_desc="$newDesc"');
       await client
           .run('nvram set wgc${slot}_priv="${wgMap['PrivateKey'] ?? ''}"');
@@ -211,9 +240,12 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       // --- Step 4: Start the tunnel ---
       // Merlin reads enforce, enable flags, and the VPN Director rulelist at
       // this point and applies everything in one pass.
-      widget.onLog('Starting VPN tunnel (restart_vpnc$slot)...');
-      await client.run('service restart_vpnc$slot');
-      await Future.delayed(const Duration(seconds: 3));
+      widget.onLog(
+          'Applying WireGuard configuration and switching to wgc$slot...');
+      await client.run('nvram commit');
+      // Restart WireGuard subsystem so enable/enforce changes take effect
+      await client.run('service restart_wgc');
+      await Future.delayed(const Duration(seconds: 5));
 
       // --- Step 5: Poll for handshake confirmation via wgcN_rip ---
       // Clear any stale value from a previous session first to prevent
@@ -245,11 +277,6 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       // --- Step 6: Re-enable kill switch (NVRAM only) ---
       // Same reasoning as Step 1 — no restart_firewall. The enforce value is
       // now persisted and will be enforced by Merlin on any future tunnel restart.
-      widget.onLog('Re-enabling kill switch...');
-      await client.run('nvram set wgc${slot}_enforce=1');
-      await client.run('nvram commit');
-      killSwitchDisabled = false;
-
       final localIpResult = await client.run('nvram get wgc${slot}_addr');
       final localIp = utf8.decode(localIpResult).trim();
 
@@ -263,7 +290,11 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       if (killSwitchDisabled) {
         widget.onLog('Error occurred. Attempting to restore kill switch...');
         try {
-          await client?.run('nvram set wgc${slot}_enforce=1 && nvram commit');
+          if (activeSlot != null) {
+            await client
+                ?.run('nvram set wgc${activeSlot}_enforce=1 && nvram commit');
+            await client?.run('service restart_wgc');
+          }
           widget.onLog('Kill switch restored.');
         } catch (_) {
           widget.onLog(
