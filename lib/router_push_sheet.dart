@@ -213,45 +213,50 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
           'Successfully wrote configuration to router. WireGuard interfaces and VPN Director rules re-applied.',
           isSuccess: true);
 
-      // Fetch and Display Router Status ---
+      // --- Fetch and Display Router Status via Local NVRAM ---
       try {
-        // Re-open a brief connection to pull post-applied status safely
-        final statusSocket = await SSHSocket.connect(_ipCtrl.text.trim(), 22, timeout: const Duration(seconds: 5));
+        // Re-open a brief connection to pull the applied NVRAM state safely
+        final statusSocket = await SSHSocket.connect(_ipCtrl.text.trim(), 22,
+            timeout: const Duration(seconds: 5));
         final statusClient = SSHClient(
           statusSocket,
           username: _userCtrl.text.trim(),
           onPasswordRequest: () => _passCtrl.text,
         );
 
-        // 1. Get the current local interface IP from NVRAM
-        final localIpResult = await statusClient.run('nvram get wgc${slot}_addr');
+        // 1. Fetch the local tunnel IP address
+        final localIpResult =
+            await statusClient.run('nvram get wgc${slot}_addr');
         final localIp = utf8.decode(localIpResult).trim();
 
-        // 2. Fetch the current public IP passing over this active WireGuard interface link
-        // We use a short timeout connect string to avoid blocking if the tunnel handshakes slowly
-        final publicIpResult = await statusClient.run('curl --interface wgc$slot --max-time 5 https://ifconfig.me/ip');
+        // 2. Fetch the public IP address tracked by the interface
+        final publicIpResult =
+            await statusClient.run('nvram get wgc${slot}_rip');
         var publicIp = utf8.decode(publicIpResult).trim();
 
         if (publicIp.isEmpty) {
-          publicIp = 'Connecting...';
+          publicIp = 'Activating...';
         }
 
         statusClient.close();
 
-        // 3. Print the final composite log message to the screen
+        // 3. Print the final combined status message with description
         widget.onLog(
-          'Router connected (local: $localIp - public: $publicIp)',
+          'Router VPN now connected via $newDesc (local: $localIp - public: $publicIp)',
           isSuccess: true,
         );
       } catch (statusError) {
-        // Quietly log if the state verification wrapper hit an error or timed out
         widget.onLog(
-          'Router configuration applied, but status verification timed out.',
+          'Router configuration applied, but local status verification failed.',
           isError: false,
         );
       }
-      
+
       if (mounted) Navigator.pop(context);
+    } catch (e) {
+      widget.onLog('Failed to complete router alignment operations: $e',
+          isError: true);
+    } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
