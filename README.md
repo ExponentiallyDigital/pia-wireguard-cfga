@@ -297,6 +297,7 @@ This app requires specific native system declarations to manage secure API hands
 - Fix table display on README: renders fine in VS Code with Markdown Preview Enhanced, but borders are visible on GitHub, and pandoc HTML version has horizintal lines above/below tables
 - add README badges for automated security/quality analysis
 - add feature "push to to router"
+- update java version to 21(17)in code scan yaml
 
 ## Build chain & utility notes
 
