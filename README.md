@@ -292,12 +292,12 @@ This app requires specific native system declarations to manage secure API hands
 - DONE include software BOM (bill of materials) in release artifacts
 - DONE rebuild release output files (drop zip, include 3 versions)
 - DONE update screenshots for phone, 7" and 10" tablets showing clipboard clearing
+- DONE update java version to 21(17)in release and code scan yaml
 
 - Release to Play Store - 12 testers opted-in to **closed test** for 14 continuous days
 - Fix table display on README: renders fine in VS Code with Markdown Preview Enhanced, but borders are visible on GitHub, and pandoc HTML version has horizintal lines above/below tables
 - add README badges for automated security/quality analysis
 - add feature "push to to router"
-- update java version to 21(17)in release and code scan yaml
 
 ## Build chain & utility notes
 
