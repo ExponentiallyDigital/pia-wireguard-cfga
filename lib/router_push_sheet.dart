@@ -213,7 +213,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
           'Successfully wrote configuration to router. WireGuard interfaces and VPN Director rules re-applied.',
           isSuccess: true);
 
-      // --- Fetch and Display Router Status via Local NVRAM ---
+      // --- Fetch and Display Router Status via Local NVRAM with Handshake Delay ---
       try {
         // Re-open a brief connection to pull the applied NVRAM state safely
         final statusSocket = await SSHSocket.connect(_ipCtrl.text.trim(), 22,
@@ -224,23 +224,36 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
           onPasswordRequest: () => _passCtrl.text,
         );
 
-        // 1. Fetch the local tunnel IP address
+        // 1. Fetch the local tunnel IP address (this is written instantly)
         final localIpResult =
             await statusClient.run('nvram get wgc${slot}_addr');
         final localIp = utf8.decode(localIpResult).trim();
 
-        // 2. Fetch the public IP address tracked by the interface
-        final publicIpResult =
-            await statusClient.run('nvram get wgc${slot}_rip');
-        var publicIp = utf8.decode(publicIpResult).trim();
+        // 2. Poll the router's memory with a maximum 5-second timeout for the public IP to appear
+        String publicIp = '';
+        for (int retry = 0; retry < 5; retry++) {
+          final publicIpResult =
+              await statusClient.run('nvram get wgc${slot}_rip');
+          publicIp = utf8.decode(publicIpResult).trim();
 
-        if (publicIp.isEmpty) {
+          if (publicIp.isNotEmpty && publicIp != '0.0.0.0') {
+            break; // Handshake completed, exit the loop early
+          }
+
+          // Signal a keepalive to your activity tracker so the parent view stays active
+          widget.onActivity?.call();
+
+          // Wait 1 second before querying NVRAM again
+          await Future.delayed(const Duration(seconds: 1));
+        }
+
+        if (publicIp.isEmpty || publicIp == '0.0.0.0') {
           publicIp = 'Activating...';
         }
 
         statusClient.close();
 
-        // 3. Print the final combined status message with description
+        // 3. Print the final status message matching your preferred structure
         widget.onLog(
           'Router VPN now connected via $newDesc (local: $localIp - public: $publicIp)',
           isSuccess: true,
