@@ -153,8 +153,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (!mounted) {
       return;
     }
-    setState(
-        () => _log.add(_LogEntry(msg, isError: isError, isSuccess: isSuccess)));
+    final now = DateTime.now();
+    final ts =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    setState(() => _log
+        .add(_LogEntry('[$ts] $msg', isError: isError, isSuccess: isSuccess)));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent,

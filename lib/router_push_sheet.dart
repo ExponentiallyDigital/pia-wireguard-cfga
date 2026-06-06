@@ -27,6 +27,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
 
   int _step = 0; // 0 = credentials, 1 = slot selection
   bool _loading = false;
+  bool _pushComplete = false;
   Map<int, String> _slots = {};
   int _selectedSlot = -1;
   bool _sshPassVisible = false;
@@ -111,7 +112,6 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
     final slot = _selectedSlot;
     widget.onLog('Preparing to push config to slot wgc$slot...');
 
-    // Declared outside try so both catch and finally can access them.
     SSHClient? client;
     bool killSwitchDisabled = false;
 
@@ -133,21 +133,22 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       );
       await client.authenticated;
 
-      // --- Step 1: Disable kill switch before touching the tunnel ---
+      // --- Step 1: Disable kill switch (NVRAM only) ---
+      // Do NOT call service restart_firewall here. On Merlin, restart_firewall
+      // internally triggers restart_wgc, which would tear down any running tunnel
+      // and process all enable flags — stopping WGC slots set to enable=0.
+      // Writing enforce=0 to NVRAM is sufficient; Merlin reads it when the
+      // tunnel starts in Step 4 below.
       widget.onLog('Disabling kill switch (wgc${slot}_enforce)...');
       await client.run('nvram set wgc${slot}_enforce=0');
       await client.run('nvram commit');
-      await client.run('service restart_firewall');
       killSwitchDisabled = true;
       widget.onLog('Kill switch disabled.');
-      await Future.delayed(const Duration(seconds: 2));
 
       // --- Step 2: Write NVRAM variables ---
-      // Disable all slots except the target, then write the new config values.
       for (int i = 1; i <= 5; i++) {
         await client.run('nvram set wgc${i}_enable="${i == slot ? "1" : "0"}"');
       }
-
       await client.run('nvram set wgc${slot}_desc="$newDesc"');
       await client
           .run('nvram set wgc${slot}_priv="${wgMap['PrivateKey'] ?? ''}"');
@@ -163,13 +164,13 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       await client.run('nvram commit');
       widget.onLog('NVRAM written and committed.');
 
-      // --- Step 3: Restart the tunnel ---
-      widget.onLog('Restarting VPN tunnel (restart_vpnc$slot)...');
-      await client.run('service restart_vpnc$slot');
-      await Future.delayed(const Duration(seconds: 3));
-
-      // --- Step 4: Update VPN Director rules ---
-      widget.onLog('Updating VPN Director policy routing rules...');
+      // --- Step 3: Update VPN Director rulelist BEFORE starting the tunnel ---
+      // Merlin reads the rulelist file at tunnel start time. Writing it here
+      // ensures the correct interface (WGC$slot) is active when restart_vpnc$slot
+      // fires below. Do NOT call service restart_vpndirector — that triggers
+      // restart_wgc internally, which would interfere with our controlled restart.
+      // Merlin applies the updated rulelist automatically when the tunnel starts.
+      widget.onLog('Updating VPN Director rulelist...');
       final readResult =
           await client.run('cat /jffs/openvpn/vpndirector_rulelist');
       final rulelistString = utf8.decode(readResult).trim();
@@ -183,7 +184,6 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         for (var match in matches) {
           final existingStatus = match.group(1);
           final ruleBody = match.group(2) ?? '';
-
           if (ruleBody.endsWith('>WGC1') ||
               ruleBody.endsWith('>WGC2') ||
               ruleBody.endsWith('>WGC3') ||
@@ -202,13 +202,23 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
               updatedRules.join('').replaceAll('"', '\\"');
           await client.run(
               'echo -n "$finalRulesSingleLine" > /jffs/openvpn/vpndirector_rulelist');
-          await client.run('service restart_vpndirector');
+          widget.onLog('VPN Director rulelist updated.');
         }
+      } else {
+        widget.onLog('VPN Director rulelist empty or not found — skipping.');
       }
 
-      // --- Step 5: Poll for handshake confirmation ---
-      // wgcN_rip is set by Merlin when WireGuard completes a handshake.
-      // We wait up to 30 seconds before deciding the tunnel has failed.
+      // --- Step 4: Start the tunnel ---
+      // Merlin reads enforce, enable flags, and the VPN Director rulelist at
+      // this point and applies everything in one pass.
+      widget.onLog('Starting VPN tunnel (restart_vpnc$slot)...');
+      await client.run('service restart_vpnc$slot');
+      await Future.delayed(const Duration(seconds: 3));
+
+      // --- Step 5: Poll for handshake confirmation via wgcN_rip ---
+      // Clear any stale value from a previous session first to prevent
+      // a leftover IP from giving a false positive on check 1.
+      await client.run('nvram set wgc${slot}_rip=""');
       widget.onLog('Waiting for WireGuard handshake (up to 30s)...');
       String publicIp = '';
       for (int retry = 0; retry < 15; retry++) {
@@ -222,22 +232,22 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       }
 
       if (publicIp.isEmpty || publicIp == '0.0.0.0') {
-        // Throw so the catch block can attempt kill switch restore before surfacing the error.
         throw Exception(
           'Handshake not confirmed after 30 seconds. '
           'Kill switch has NOT been re-enabled. '
-          'Check the tunnel manually, then run: '
-          'nvram set wgc${slot}_enforce=1 && nvram commit && service restart_firewall',
+          'Check tunnel status via SSH: wg show wgc$slot\n'
+          'Then re-enable manually: nvram set wgc${slot}_enforce=1 && nvram commit',
         );
       }
 
       widget.onLog('Handshake confirmed. Public IP: $publicIp');
 
-      // --- Step 6: Re-enable kill switch ---
+      // --- Step 6: Re-enable kill switch (NVRAM only) ---
+      // Same reasoning as Step 1 — no restart_firewall. The enforce value is
+      // now persisted and will be enforced by Merlin on any future tunnel restart.
       widget.onLog('Re-enabling kill switch...');
       await client.run('nvram set wgc${slot}_enforce=1');
       await client.run('nvram commit');
-      await client.run('service restart_firewall');
       killSwitchDisabled = false;
 
       final localIpResult = await client.run('nvram get wgc${slot}_addr');
@@ -248,18 +258,17 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         isSuccess: true,
       );
       widget.onLog('Kill switch re-enabled. Push complete.', isSuccess: true);
+      if (mounted) setState(() => _pushComplete = true);
     } catch (e) {
-      // If the kill switch was disabled and something went wrong, attempt to restore it.
       if (killSwitchDisabled) {
         widget.onLog('Error occurred. Attempting to restore kill switch...');
         try {
-          await client?.run(
-              'nvram set wgc${slot}_enforce=1 && nvram commit && service restart_firewall');
+          await client?.run('nvram set wgc${slot}_enforce=1 && nvram commit');
           widget.onLog('Kill switch restored.');
         } catch (_) {
           widget.onLog(
-            'CRITICAL: Could not restore kill switch automatically. '
-            'Run via SSH: nvram set wgc${slot}_enforce=1 && nvram commit && service restart_firewall',
+            'CRITICAL: Could not restore kill switch. '
+            'Run via SSH: nvram set wgc${slot}_enforce=1 && nvram commit',
             isError: true,
           );
         }
@@ -267,7 +276,6 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       widget.onLog('Push failed: ${e.toString().replaceAll('Exception: ', '')}',
           isError: true);
     } finally {
-      // client?.close() is safe whether or not the connection was ever established.
       client?.close();
       if (mounted) setState(() => _loading = false);
     }
@@ -398,8 +406,9 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed:
-                    (_loading || _selectedSlot == -1) ? null : _pushToRouter,
+                onPressed: (_loading || _selectedSlot == -1 || _pushComplete)
+                    ? null
+                    : _pushToRouter,
                 child: _loading
                     ? const SizedBox(
                         height: 20,
@@ -408,6 +417,19 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
                             strokeWidth: 2, color: Color(0xFF12141A)))
                     : const Text('CONFIRM WRITE TO ROUTER'),
               ),
+              if (_pushComplete) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: const Text('DONE — CLOSE'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green,
+                    side: const BorderSide(color: Colors.green),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ],
             ],
             // Removed the extra spacer or variable bottom viewport padding needed by bottom sheets
           ],
