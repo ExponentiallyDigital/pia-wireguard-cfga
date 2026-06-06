@@ -621,16 +621,28 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   void _showRouterPushSheet() {
+    // Reset timer immediately when opening the workflow
+    _startOrResetTimer();
+
     showDialog(
       context: context,
-      barrierDismissible: true, // Allows tapping outside the box to close it
+      barrierDismissible: true,
       builder: (ctx) => Dialog(
         backgroundColor: const Color(0xFF1A1D23),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: RouterPushSheet(
-          config: _generatedConfig!,
-          regionId: _regionCtrl.text.trim(),
-          onLog: _logEntry,
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) {
+            // Every time the user interacts with the dialog screen, refresh the session timer
+            _startOrResetTimer();
+          },
+          child: RouterPushSheet(
+            config: _generatedConfig!,
+            regionId: _regionCtrl.text.trim(),
+            onLog: _logEntry,
+            onActivity:
+                _startOrResetTimer, // Hooks programmatic tasks to your keepalive mechanism
+          ),
         ),
       ),
     );

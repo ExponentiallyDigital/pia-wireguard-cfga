@@ -6,12 +6,14 @@ class RouterPushSheet extends StatefulWidget {
   final String config;
   final String regionId;
   final void Function(String, {bool isError, bool isSuccess}) onLog;
+  final VoidCallback? onActivity;
 
   const RouterPushSheet({
     super.key,
     required this.config,
     required this.regionId,
     required this.onLog,
+    this.onActivity,
   });
 
   @override
@@ -37,6 +39,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
   }
 
   Future<void> _fetchSlots() async {
+    widget.onActivity?.call(); // Refresh session
     final ip = _ipCtrl.text.trim();
     final user = _userCtrl.text.trim();
     final pass = _passCtrl.text;
@@ -104,6 +107,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
     setState(() => _loading = true);
     final slot = _selectedSlot;
     widget.onLog('Preparing to push config to slot wgc$slot...');
+    widget.onActivity?.call(); // Refresh session
 
     try {
       final wgMap = _parseWgConfig(widget.config);
@@ -123,8 +127,16 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         onPasswordRequest: () => _passCtrl.text,
       );
 
-      // Explicitly only pushing variables derived from the generated config to retain existing settings
-      final cmds = [
+      // Create base list of update commands
+      final List<String> cmds = [];
+
+      // Loop 1 to 5: Set all slots to disabled (0) EXCEPT the explicitly selected target slot (1)
+      for (int i = 1; i <= 5; i++) {
+        cmds.add('nvram set wgc${i}_enable="${i == slot ? "1" : "0"}"');
+      }
+
+      // Add configuration payload commands for target slot to retain unmodified secondary variables
+      cmds.addAll([
         'nvram set wgc${slot}_desc="$newDesc"',
         'nvram set wgc${slot}_priv="${wgMap['PrivateKey'] ?? ''}"',
         'nvram set wgc${slot}_addr="${wgMap['Address']?.replaceAll('/32', '') ?? ''}"',
@@ -136,7 +148,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         'nvram set wgc${slot}_ep_port="$epPort"',
         'nvram set wgc${slot}_aips="${wgMap['AllowedIPs'] ?? '0.0.0.0/0'}"',
         'nvram commit'
-      ];
+      ]);
 
       for (var cmd in cmds) {
         await client.run(cmd);
@@ -144,7 +156,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
 
       client.close();
       widget.onLog(
-          'Successfully wrote and committed config to router NVRAM (Slot $slot).',
+          'Successfully wrote and committed config to router NVRAM (Slot $slot). Only slot wgc$slot is enabled.',
           isSuccess: true);
 
       if (mounted) Navigator.pop(context);
@@ -167,7 +179,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              _step == 0 ? 'ROUTER SSH LOGIN' : 'SELECT WIREGUARD SLOT',
+              _step == 0 ? 'ROUTER SSH LOGIN' : 'WRITE TO WIREGUARD SLOT',
               style: const TextStyle(
                   color: Color(0xFF00D4AA),
                   fontSize: 12,
@@ -216,7 +228,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
                         width: 20,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Color(0xFF12141A)))
-                    : const Text('CONNECT & SCAN NVRAM'),
+                    : const Text('CONNECT'),
               ),
             ] else ...[
               Container(
@@ -278,7 +290,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
                         width: 20,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Color(0xFF12141A)))
-                    : const Text('CONFIRM PUSH TO ROUTER'),
+                    : const Text('CONFIRM WRITE TO ROUTER'),
               ),
             ],
             // Removed the extra spacer or variable bottom viewport padding needed by bottom sheets
