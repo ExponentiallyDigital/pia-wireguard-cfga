@@ -262,8 +262,9 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
 
       // ── Success ─────────────────────────────────────────────────────────────
       final localIp = await _run(client, 'nvram get wgc${slot}_addr');
+      final publiclIp = await _run(client, 'nvram get wgc${slot}_rip');
       widget.onLog(
-        'Connected via $newDesc  |  local: $localIp',
+        'Connected via $newDesc | local: $localIp - Public: $publiclIp',
         isSuccess: true,
       );
       widget.onLog('Push complete.', isSuccess: true);
