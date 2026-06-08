@@ -259,11 +259,22 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         );
       }
 
-      // ── Success ─────────────────────────────────────────────────────────────
+// ── Success ─────────────────────────────────────────────────────────────
       final localIp = await _run(client, 'nvram get wgc${slot}_addr');
-      final publiclIp = await _run(client, 'nvram get wgc${slot}_rip');
+      widget.onLog('Waiting for handshake...');
+      String publicIp = '';
+      for (int i = 0; i < 15; i++) {
+        publicIp = await _run(client, 'nvram get wgc${slot}_rip');
+        if (publicIp.isNotEmpty) break;
+        widget.onLog('  Handshake check ${i + 1}/15: waiting...');
+        await Future.delayed(const Duration(seconds: 2));
+      }
+      if (publicIp.isEmpty) {
+        widget.onLog(
+            'Warning: public IP not yet available after handshake wait.');
+      }
       widget.onLog(
-        'Connected via $newDesc | local: $localIp - Public: $publiclIp',
+        'Connected via $newDesc | local: $localIp - Public: $publicIp',
         isSuccess: true,
       );
       widget.onLog('Push complete.', isSuccess: true);
