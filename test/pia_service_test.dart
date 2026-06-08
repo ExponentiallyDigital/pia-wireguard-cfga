@@ -52,7 +52,7 @@ class TestPiaService extends PiaService {
 
   @override
   Future<List<ProbeResult>> probeLatency(List<WgServer> servers,
-      {void Function(String)? onProgress}) async {
+      {void Function(String)? onProgress, required String regionId}) async {
     onProgress?.call('probing');
     return probeResults;
   }
@@ -559,6 +559,7 @@ void main() {
         final results = await service.probeLatency(
           [responding, failing],
           onProgress: progress.add,
+          regionId: 'test_region',
         );
         expect(results.first.server.ip, '127.0.0.1');
         expect(results.last.failed, true);
@@ -579,6 +580,7 @@ void main() {
         final results = await service.probeLatency(
           [first, second],
           onProgress: progress.add,
+          regionId: 'test_region',
         );
 
         expect(results, hasLength(2));
@@ -615,6 +617,7 @@ void main() {
         final results = await service.probeLatency(
           [responding, failing],
           onProgress: progress.add,
+          regionId: 'test_region',
         );
 
         // Verify the progress callback was called for failed probe

@@ -32,6 +32,8 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
   int _step = 0; // 0 = credentials, 1 = slot selection
   bool _loading = false;
   Map<int, String> _slots = {};
+  Map<int, bool> _killSwitch = {};
+  int? _activeSlot;
   int _selectedSlot = -1;
   bool _sshPassVisible = false;
 
@@ -76,9 +78,16 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       await client.authenticated;
 
       final Map<int, String> retrievedSlots = {};
+      final Map<int, bool> retrievedKillSwitch = {};
       for (int i = 1; i <= 5; i++) {
         retrievedSlots[i] = await _run(client, 'nvram get wgc${i}_desc');
+        retrievedKillSwitch[i] =
+            (await _run(client, 'nvram get wgc${i}_enforce')) == '1';
       }
+      final ifaceOutput = await _run(client, 'wg show interfaces');
+      final activeMatch = RegExp(r'wgc(\d)').firstMatch(ifaceOutput);
+      final detectedActiveSlot =
+          activeMatch != null ? int.tryParse(activeMatch.group(1)!) : null;
 
       if (retrievedSlots.values.every((d) => d.isEmpty)) {
         widget.onLog(
@@ -89,6 +98,8 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       widget.onLog('Successfully retrieved router config.', isSuccess: true);
       setState(() {
         _slots = retrievedSlots;
+        _killSwitch = retrievedKillSwitch;
+        _activeSlot = detectedActiveSlot;
         _step = 1;
       });
     } catch (e) {
@@ -203,7 +214,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
           'enforce',
           'enable'
         ]) {
-          slotBackup!['wgc${slot}_$key'] =
+          slotBackup['wgc${slot}_$key'] =
               await _run(client, 'nvram get wgc${slot}_$key');
         }
         widget.onLog('Backup complete.');
@@ -318,7 +329,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       if (slotBackup != null) {
         widget.onLog('Push failed — restoring wgc$slot config...');
         try {
-          for (final entry in slotBackup!.entries) {
+          for (final entry in slotBackup.entries) {
             await client?.run('nvram set ${entry.key}="${entry.value}"');
           }
           await client?.run('nvram commit');
@@ -362,6 +373,30 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       client?.close();
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  // ─── Badge Helper ─────────────────────────────────────────────────────────────
+
+  Widget _badge(String label,
+      {required Color text, required Color border, required Color bg}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        border: Border.all(color: border, width: 0.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: text,
+          fontSize: 10,
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
   }
 
   // ─── Build ───────────────────────────────────────────────────────────────────
@@ -447,7 +482,8 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
                     final slotNum = entry.key;
                     final desc =
                         entry.value.isEmpty ? '(Empty Slot)' : entry.value;
-
+                    final isActive = _activeSlot == slotNum;
+                    final hasKillSwitch = _killSwitch[slotNum] == true;
                     return InkWell(
                       onTap: () => setState(() => _selectedSlot = slotNum),
                       child: Padding(
@@ -476,6 +512,25 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
                                       style: const TextStyle(
                                           color: Color(0xFF8892A4),
                                           fontSize: 12)),
+                                  if (isActive || hasKillSwitch) ...[
+                                    const SizedBox(height: 5),
+                                    Row(
+                                      children: [
+                                        if (isActive)
+                                          _badge('● ACTIVE',
+                                              text: const Color(0xFF00D4AA),
+                                              border: const Color(0xFF00D4AA),
+                                              bg: const Color(0xFF0F3D2E)),
+                                        if (isActive && hasKillSwitch)
+                                          const SizedBox(width: 6),
+                                        if (hasKillSwitch)
+                                          _badge('⚑ KILL SWITCH',
+                                              text: const Color(0xFFEF9F27),
+                                              border: const Color(0xFFEF9F27),
+                                              bg: const Color(0xFF2A1F0E)),
+                                      ],
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
