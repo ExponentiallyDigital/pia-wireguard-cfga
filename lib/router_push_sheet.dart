@@ -165,7 +165,6 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       //   nvram set wgcN_enable=0
       //   nvram commit
       //   service "stop_wgc N" && service restart_firewall && service restart_vpnrouting0
-      //                                   ^^^^^^^^^^^^^^^^ this may change
       //
       // Skipped when no tunnel is running (activeSlot == null).
       //
@@ -176,7 +175,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         await _run(client, 'nvram commit');
         await _run(
           client,
-          'service "stop_wgc $activeSlot" && service restart_wgc && service restart_vpnrouting0', // change services to be restarted see comment in "Steps 7–10: Start the new tunnel"
+          'service "service restart_wgc && service restart_vpnrouting0', // removed "stop_wgc N"
         );
         widget
             .onLog('wgc$activeSlot stopped. Waiting for routing to settle...');
@@ -279,7 +278,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
           await client?.run('nvram set wgc${activeSlot}_enable=1');
           await client?.run('nvram commit');
           await client?.run(
-            'service "start_wgc $activeSlot" && service restart_firewall && service restart_vpnrouting0',
+            'service restart_wgc && service restart_firewall && service restart_vpnrouting0',
           );
           widget.onLog('wgc$activeSlot restored.', isSuccess: true);
         } catch (_) {
