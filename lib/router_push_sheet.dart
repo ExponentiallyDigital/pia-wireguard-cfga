@@ -175,7 +175,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         await _run(client, 'nvram commit');
         await _run(
           client,
-          'service "service restart_wgc && service start_vpnrouting0', // removed "stop_wgc N"
+          'service restart_wgc && service start_vpnrouting0', // removed "stop_wgc N"
         );
         widget
             .onLog('wgc$activeSlot stopped. Waiting for routing to settle...');
