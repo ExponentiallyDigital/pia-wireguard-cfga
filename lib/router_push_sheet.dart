@@ -122,6 +122,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
 
     SSHClient? client;
     int? activeSlot;
+    Map<String, String>? slotBackup;
 
     try {
       final wgMap = _parseWgConfig(widget.config);
@@ -179,6 +180,33 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
         widget
             .onLog('wgc$activeSlot stopped. Waiting for routing to settle...');
         await Future.delayed(const Duration(seconds: 5));
+      }
+
+      // ── Backup existing slot config ────────────────────────────────────────
+      // Only backs up non-empty slots so we can restore on push failure.
+      if (_slots[slot]?.isNotEmpty == true) {
+        widget.onLog('Backing up existing wgc$slot config...');
+        slotBackup = {};
+        for (final key in [
+          'desc',
+          'priv',
+          'addr',
+          'dns',
+          'mtu',
+          'ppub',
+          'ep_addr',
+          'ep_port',
+          'aips',
+          'fw',
+          'nat',
+          'alive',
+          'enforce',
+          'enable'
+        ]) {
+          slotBackup!['wgc${slot}_$key'] =
+              await _run(client, 'nvram get wgc${slot}_$key');
+        }
+        widget.onLog('Backup complete.');
       }
 
       // ── Write new config to NVRAM ──────────────────────────────────────────
@@ -260,7 +288,8 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       }
 
 // ── Success ─────────────────────────────────────────────────────────────
-      final localIp = await _run(client, 'nvram get wgc${slot}_addr');
+      final localIp =
+          (await _run(client, 'nvram get wgc${slot}_addr')).split('/').first;
       widget.onLog('Waiting for handshake...');
       String publicIp = '';
       for (int i = 0; i < 15; i++) {
@@ -274,7 +303,7 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
             'Warning: public IP not yet available after handshake wait.');
       }
       widget.onLog(
-        'Connected via $newDesc | local: $localIp - Public: $publicIp',
+        'Connected via $newDesc, local: $localIp, public: $publicIp (pool assigned, will vary)',
         isSuccess: true,
       );
       widget.onLog('Push complete.', isSuccess: true);
@@ -286,6 +315,22 @@ class _RouterPushSheetState extends State<RouterPushSheet> {
       // If the slot active before the push is known, attempt to restore it using
       // the new start sequence, putting the router back in a known-good state.
       //
+      if (slotBackup != null) {
+        widget.onLog('Push failed — restoring wgc$slot config...');
+        try {
+          for (final entry in slotBackup!.entries) {
+            await client?.run('nvram set ${entry.key}="${entry.value}"');
+          }
+          await client?.run('nvram commit');
+          widget.onLog('wgc$slot config restored.', isSuccess: true);
+        } catch (_) {
+          widget.onLog(
+            'CRITICAL: Could not restore wgc$slot. Check router manually.',
+            isError: true,
+          );
+        }
+      }
+
       if (activeSlot != null) {
         widget.onLog('Push failed — attempting to restore wgc$activeSlot...');
         try {
