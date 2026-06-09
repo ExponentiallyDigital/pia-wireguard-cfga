@@ -282,7 +282,7 @@ This app requires specific native system declarations to manage secure API hands
 - DONE clear clipboard after 60 seconds if conf copied there
 - DONE automated security/quality analysis: Flutter analyse, SonarCube, Google OSV dependency scan, Mobile security scanning (MobSF), Dependabot dependency management, and CodeQL analysis.
 - DONE split release.yaml into code scan and actual release
-- DONE renamed $ADDON to $RELEASE in release.yaml (was carry over from WoW addon packaging)
+- DONE renamed `$ADDON` to `$RELEASE` in release.yaml (was carry over from WoW addon packaging)
 - DONE fixup html intermediary file name (caused resultant doc title issue)
 - DONE add SBOM as a release artifact (Syft)
 - DONE implement local PS1 app to replace tags with SHAs
@@ -293,11 +293,13 @@ This app requires specific native system declarations to manage secure API hands
 - DONE rebuild release output files (drop zip, include 3 versions)
 - DONE update screenshots for phone, 7" and 10" tablets showing clipboard clearing
 - DONE update java version to 21(17)in release and code scan yaml
-
+- DONE increase automated tests to >90% of the codebase
+- DONE feature "push cfg to router"
+  <br>
 - Release to Play Store - 12 testers opted-in to **closed test** for 14 continuous days
 - Fix table display on README: renders fine in VS Code with Markdown Preview Enhanced, but borders are visible on GitHub, and pandoc HTML version has horizintal lines above/below tables
 - add README badges for automated security/quality analysis
-- add feature "push cfg to router"
+- add push to router screenshots
 
 ## Build chain & utility notes
 
