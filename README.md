@@ -499,7 +499,7 @@ AllowedIPs          = 0.0.0.0/0
 
 ## Network traffic flow diagram
 
-![PIA WireGuard Config Network Traffic Flow](./images/network-traffic2.svg)
+![PIA WireGuard Config Network Traffic Flow](./images/network-traffic4.svg)
 
 ---
 
