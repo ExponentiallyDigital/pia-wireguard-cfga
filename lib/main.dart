@@ -39,15 +39,12 @@ class PiaWgApp extends StatelessWidget {
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFF1E2128),
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF2E3240))),
-          enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFF2E3240))),
+          border:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF2E3240))),
+          enabledBorder:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFF2E3240))),
           focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: _kHighlight, width: 1.5)),
+              borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _kHighlight, width: 1.5)),
           labelStyle: const TextStyle(color: Color(0xFF8892A4)),
           hintStyle: const TextStyle(color: Color(0xFF4A5268)),
         ),
@@ -56,10 +53,8 @@ class PiaWgApp extends StatelessWidget {
             backgroundColor: _kHighlight,
             foregroundColor: const Color(0xFF12141A),
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            textStyle: const TextStyle(
-                fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.5),
           ),
         ),
       ),
@@ -112,13 +107,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _wipeTimer?.cancel();
     _clipboardTimer?.cancel();
-    for (var controller in [
-      _usernameCtrl,
-      _passwordCtrl,
-      _regionCtrl,
-      _dnsCtrl,
-      _scrollCtrl
-    ]) {
+    for (var controller in [_usernameCtrl, _passwordCtrl, _regionCtrl, _dnsCtrl, _scrollCtrl]) {
       controller.dispose();
     }
     super.dispose();
@@ -138,8 +127,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
       // Check if clipboard deadline passed while app was in background
       if (_clipboardWipeDeadline != null) {
-        final remaining =
-            _clipboardWipeDeadline!.difference(DateTime.now()).inSeconds;
+        final remaining = _clipboardWipeDeadline!.difference(DateTime.now()).inSeconds;
         if (remaining <= 0) {
           _clearClipboard();
         } else {
@@ -156,8 +144,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final now = DateTime.now();
     final ts =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-    setState(() => _log
-        .add(_LogEntry('[$ts] $msg', isError: isError, isSuccess: isSuccess)));
+//    if (_log.isEmpty && !msg.contains('Starting') && !_loading) return; // fix for erratic log clearing
+    setState(() => _log.add(_LogEntry('[$ts] $msg', isError: isError, isSuccess: isSuccess)));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent,
@@ -209,18 +197,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         return;
       }
       setState(() => _regions = regions);
-      final totalServers =
-          regions.fold<int>(0, (sum, r) => sum + r.wgServers.length);
+      final totalServers = regions.fold<int>(0, (sum, r) => sum + r.wgServers.length);
       _logEntry('Loaded ${regions.length} regions ($totalServers servers).');
       showModalBottomSheet(
         context: context,
         backgroundColor: const Color(0xFF1A1D23),
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
         isScrollControlled: true,
-        builder: (ctx) => _RegionPickerSheet(
-            regions: _regions,
-            onSelected: (id) => setState(() => _regionCtrl.text = id)),
+        builder: (ctx) => _RegionPickerSheet(regions: _regions, onSelected: (id) => setState(() => _regionCtrl.text = id)),
       );
     } catch (e) {
       _logEntry('Failed to load regions: $e', isError: true);
@@ -237,8 +221,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         password = _passwordCtrl.text.trim(),
         dns = _dnsCtrl.text.trim();
     if (region.isEmpty || username.isEmpty || password.isEmpty) {
-      return _logEntry('Region, username, and password required.',
-          isError: true);
+      return _logEntry('Region, username, and password required.', isError: true);
     }
 
     setState(() {
@@ -248,12 +231,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     _logEntry('Starting...');
 
     try {
-      final config = await _service.generateConfig(
-          region: region,
-          username: username,
-          password: password,
-          dns: dns,
-          onProgress: _logEntry);
+      final config =
+          await _service.generateConfig(region: region, username: username, password: password, dns: dns, onProgress: _logEntry);
       if (!mounted) {
         return;
       }
@@ -279,10 +258,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final tempFile = File('${dir.path}/$filename');
     try {
       await tempFile.writeAsString(_generatedConfig!, flush: true);
-      await SharePlus.instance.share(ShareParams(
-          files: [XFile(tempFile.path, mimeType: 'text/plain')],
-          subject: filename,
-          text: 'PIA Config: $region'));
+      await SharePlus.instance.share(
+          ShareParams(files: [XFile(tempFile.path, mimeType: 'text/plain')], subject: filename, text: 'PIA Config: $region'));
     } catch (e) {
       _logEntry('Could not share file: $e', isError: true);
     } finally {
@@ -305,21 +282,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       elevation: 0,
       title: Row(
         children: [
-          Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                  color: _kHighlight, shape: BoxShape.circle)),
+          Container(width: 8, height: 8, decoration: const BoxDecoration(color: _kHighlight, shape: BoxShape.circle)),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('PIA WireGuard Config',
-                  style: TextStyle(
-                      color: Color(0xFFE8EAF0),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: Color(0xFFE8EAF0), fontSize: 16, fontWeight: FontWeight.w600)),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -333,8 +303,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   MouseRegion(
                     cursor: SystemMouseCursors.click,
                     child: InkWell(
-                      onTap: () =>
-                          _launchUrlStr('https://www.exponentiallydigital.com'),
+                      onTap: () => _launchUrlStr('https://www.exponentiallydigital.com'),
                       child: const Padding(
                         padding: EdgeInsets.symmetric(vertical: 2),
                         child: Text(
@@ -361,13 +330,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: InkWell(
-                onTap: () => _launchUrlStr(
-                    'https://github.com/ExponentiallyDigital/pia-wireguard-cfga'),
+                onTap: () => _launchUrlStr('https://github.com/ExponentiallyDigital/pia-wireguard-cfga'),
                 child: FutureBuilder<PackageInfo>(
                   future: PackageInfo.fromPlatform(),
                   builder: (context, snap) {
-                    final versionText =
-                        snap.hasData ? 'v${snap.data!.version}' : 'v...';
+                    final versionText = snap.hasData ? 'v${snap.data!.version}' : 'v...';
                     return Text(
                       versionText,
                       style: const TextStyle(
@@ -392,21 +359,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         Expanded(
           child: TextFormField(
             controller: _regionCtrl,
-            style: const TextStyle(
-                color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
+            style: const TextStyle(color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
             decoration: const InputDecoration(
                 labelText: 'Region ID',
                 hintText: 'e.g. aus_melbourne',
-                prefixIcon:
-                    Icon(Icons.language, color: Color(0xFF8892A4), size: 18)),
+                prefixIcon: Icon(Icons.language, color: Color(0xFF8892A4), size: 18)),
           ),
         ),
         const SizedBox(width: 10),
-        _IconButton(
-            icon: Icons.list_alt,
-            loading: _loadingRegions,
-            tooltip: 'Browse regions',
-            onTap: _loadRegions),
+        _IconButton(icon: Icons.list_alt, loading: _loadingRegions, tooltip: 'Browse regions', onTap: _loadRegions),
       ],
     );
   }
@@ -418,8 +379,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       decoration: const InputDecoration(
           labelText: 'PIA username',
           hintText: 'e.g. p1234567',
-          prefixIcon:
-              Icon(Icons.person_outline, color: Color(0xFF8892A4), size: 18)),
+          prefixIcon: Icon(Icons.person_outline, color: Color(0xFF8892A4), size: 18)),
       autocorrect: false,
       enableSuggestions: false,
     );
@@ -432,14 +392,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       style: const TextStyle(color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
       decoration: InputDecoration(
         labelText: 'PIA password',
-        prefixIcon:
-            const Icon(Icons.lock_outline, color: Color(0xFF8892A4), size: 18),
+        prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF8892A4), size: 18),
         suffixIcon: GestureDetector(
           onTap: () => setState(() => _passwordVisible = !_passwordVisible),
-          child: Icon(
-              _passwordVisible ? Icons.visibility_off : Icons.visibility,
-              color: const Color(0xFF8892A4),
-              size: 18),
+          child: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility, color: const Color(0xFF8892A4), size: 18),
         ),
       ),
       autocorrect: false,
@@ -450,13 +406,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget _buildDnsField() {
     return TextFormField(
       controller: _dnsCtrl,
-      style: const TextStyle(
-          color: Color(0xFFE8EAF0), fontFamily: 'monospace', fontSize: 13),
+      style: const TextStyle(color: Color(0xFFE8EAF0), fontFamily: 'monospace', fontSize: 13),
       decoration: const InputDecoration(
         labelText: 'DNS servers',
         hintText: '9.9.9.9, 149.112.112.112',
-        prefixIcon:
-            Icon(Icons.dns_outlined, color: Color(0xFF8892A4), size: 18),
+        prefixIcon: Icon(Icons.dns_outlined, color: Color(0xFF8892A4), size: 18),
         helperText: 'Default: Quad9 | Cloudflare: 1.1.1.1, 1.0.0.1',
         helperStyle: TextStyle(color: _kHighlight, fontSize: 11),
       ),
@@ -469,11 +423,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       child: ElevatedButton(
         onPressed: _loading ? null : _generate,
         child: _loading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Color(0xFF12141A)))
+            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF12141A)))
             : const Text('GENERATE CONFIG'),
       ),
     );
@@ -492,8 +442,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (_generatedConfig == null) return;
     await Clipboard.setData(ClipboardData(text: _generatedConfig!));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Config copied'), backgroundColor: _kHighlight));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Config copied'), backgroundColor: _kHighlight));
     }
 
     // Start or reset the 60-second countdown
@@ -505,8 +454,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!mounted) {
         return timer.cancel();
       }
-      final remaining =
-          _clipboardWipeDeadline!.difference(DateTime.now()).inSeconds;
+      final remaining = _clipboardWipeDeadline!.difference(DateTime.now()).inSeconds;
       if (remaining <= 0) {
         timer.cancel();
         _clearClipboard();
@@ -522,8 +470,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     return [
       Icon(Icons.timer_outlined, size: 12, color: timerColor),
       const SizedBox(width: 4),
-      Text('${_secondsRemaining}s',
-          style: TextStyle(color: timerColor, fontSize: 11)),
+      Text('${_secondsRemaining}s', style: TextStyle(color: timerColor, fontSize: 11)),
       const SizedBox(width: 12),
     ];
   }
@@ -534,32 +481,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       Row(
         children: [
           const Text('GENERATED CONFIG',
-              style: TextStyle(
-                  color: _kHighlight,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5)),
+              style: TextStyle(color: _kHighlight, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
           const Spacer(),
           if (_secondsRemaining > 0) ..._buildTimerWidget(),
-          _ClearButton(
-              label: 'CLEAR CREDS & CFG',
-              icon: Icons.delete_outline,
-              onTap: _clearSession),
+          _ClearButton(label: 'CLEAR CREDS & CFG', icon: Icons.delete_outline, onTap: _clearSession),
         ],
       ),
       const SizedBox(height: 8),
       Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-            color: const Color(0xFF0E1016),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _kHighlight)),
+            color: const Color(0xFF0E1016), borderRadius: BorderRadius.circular(8), border: Border.all(color: _kHighlight)),
         child: SelectableText(_generatedConfig ?? '',
-            style: const TextStyle(
-                color: _kHighlight,
-                fontFamily: 'monospace',
-                fontSize: 11,
-                height: 1.6)),
+            style: const TextStyle(color: _kHighlight, fontFamily: 'monospace', fontSize: 11, height: 1.6)),
       ),
       const SizedBox(height: 16),
       Row(
@@ -643,8 +577,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             config: _generatedConfig!,
             regionId: _regionCtrl.text.trim(),
             onLog: _logEntry,
-            onActivity:
-                _startOrResetTimer, // Hooks programmatic tasks to your keepalive mechanism
+            onActivity: _startOrResetTimer, // Hooks programmatic tasks to your keepalive mechanism
           ),
         ),
       ),
@@ -652,35 +585,29 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildLogSection() {
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'LOG',
+        if (_log.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8), // Clean spacing above the box
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end, // Pushes everything to the far right
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                _ClearButton(label: 'CLEAR LOG', icon: Icons.delete_outline, onTap: () => setState(() => _log.clear())),
+              ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: _LogPanel(
-                  entries: _log,
-                  onClearLog: () => setState(() => _log.clear())),
-            ),
+          ),
+        InputDecorator(
+          decoration: const InputDecoration(
+            labelText: 'LOG',
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _LogPanel(entries: _log, onClearLog: () => setState(() => _log.clear())),
           ),
         ),
-        if (_log.isNotEmpty)
-          Positioned(
-            right: 0,
-            top: -24,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: _ClearButton(
-                  label: 'CLEAR LOG',
-                  icon: Icons.delete_outline,
-                  onTap: () => setState(() => _log.clear())),
-            ),
-          ),
       ],
     );
   }
@@ -728,12 +655,12 @@ class _ClearButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  const _ClearButton(
-      {required this.label, required this.icon, required this.onTap});
+  const _ClearButton({required this.label, required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+//      behavior: HitTestBehavior.opaque, // <-- fix for erratic behaviour
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -746,11 +673,7 @@ class _ClearButton extends StatelessWidget {
             Icon(icon, size: 12, color: const Color(0xFFFF5C5C)),
             const SizedBox(width: 4),
             Text(label,
-                style: const TextStyle(
-                    color: Color(0xFFFF5C5C),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2)),
+                style: const TextStyle(color: Color(0xFFFF5C5C), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
           ],
         ),
       ),
@@ -771,9 +694,7 @@ class _RegionPickerSheetState extends State<_RegionPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = widget.regions
-        .where((r) => r.id.toLowerCase().contains(_filter.toLowerCase()))
-        .toList();
+    final filtered = widget.regions.where((r) => r.id.toLowerCase().contains(_filter.toLowerCase())).toList();
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
       maxChildSize: 0.95,
@@ -785,20 +706,15 @@ class _RegionPickerSheetState extends State<_RegionPickerSheet> {
           Container(
               width: 40,
               height: 4,
-              decoration: BoxDecoration(
-                  color: const Color(0xFF2E3240),
-                  borderRadius: BorderRadius.circular(2))),
+              decoration: BoxDecoration(color: const Color(0xFF2E3240), borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
               autofocus: true,
-              style: const TextStyle(
-                  color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
+              style: const TextStyle(color: Color(0xFFE8EAF0), fontFamily: 'monospace'),
               decoration: const InputDecoration(
-                  hintText: 'Filter regions...',
-                  prefixIcon:
-                      Icon(Icons.search, color: Color(0xFF8892A4), size: 18)),
+                  hintText: 'Filter regions...', prefixIcon: Icon(Icons.search, color: Color(0xFF8892A4), size: 18)),
               onChanged: (v) => setState(() => _filter = v),
             ),
           ),
@@ -815,23 +731,16 @@ class _RegionPickerSheetState extends State<_RegionPickerSheet> {
                     Navigator.pop(ctx);
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     child: Row(
                       children: [
-                        const Icon(Icons.chevron_right,
-                            color: _kHighlight, size: 16),
+                        const Icon(Icons.chevron_right, color: _kHighlight, size: 16),
                         const SizedBox(width: 10),
                         Expanded(
                             child: Text(r.id,
-                                style: const TextStyle(
-                                    color: Color(0xFFE8EAF0),
-                                    fontFamily: 'monospace',
-                                    fontSize: 13))),
-                        Text(
-                            '${r.wgServers.length} server${r.wgServers.length == 1 ? '' : 's'}',
-                            style: const TextStyle(
-                                color: Color(0xFF4A5268), fontSize: 11)),
+                                style: const TextStyle(color: Color(0xFFE8EAF0), fontFamily: 'monospace', fontSize: 13))),
+                        Text('${r.wgServers.length} server${r.wgServers.length == 1 ? '' : 's'}',
+                            style: const TextStyle(color: Color(0xFF4A5268), fontSize: 11)),
                       ],
                     ),
                   ),
@@ -850,11 +759,7 @@ class _IconButton extends StatelessWidget {
   final bool loading;
   final String tooltip;
   final VoidCallback onTap;
-  const _IconButton(
-      {required this.icon,
-      required this.loading,
-      required this.tooltip,
-      required this.onTap});
+  const _IconButton({required this.icon, required this.loading, required this.tooltip, required this.onTap});
 
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -870,10 +775,7 @@ class _IconButton extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFF2E3240))),
             child: loading
-                ? const Padding(
-                    padding: EdgeInsets.all(14),
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: _kHighlight))
+                ? const Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(strokeWidth: 2, color: _kHighlight))
                 : Icon(icon, color: _kHighlight, size: 20),
           ),
         ),
@@ -892,9 +794,7 @@ class _LogPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (entries.isEmpty)
-            const Text('Ready.',
-                style: TextStyle(
-                    color: _kHighlight, fontSize: 11, fontFamily: 'monospace'))
+            const Text('Ready.', style: TextStyle(color: _kHighlight, fontSize: 11, fontFamily: 'monospace'))
           else
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -926,11 +826,7 @@ class _LogPanel extends StatelessWidget {
                       const SizedBox(width: 6),
                       Expanded(
                           child: Text(e.message,
-                              style: TextStyle(
-                                  color: color,
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
-                                  height: 1.4))),
+                              style: TextStyle(color: color, fontSize: 11, fontFamily: 'monospace', height: 1.4))),
                     ],
                   ),
                 );
