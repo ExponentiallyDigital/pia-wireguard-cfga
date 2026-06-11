@@ -181,11 +181,12 @@ All app processing is reported live in the in-app **LOG** panel including SSH co
 
 ## Notes
 
+- **Pre-shared keys**: PIA WireGuard does not (ASAICT) employ pre-shared keys. When pushing a config to the router, this field is always set to empty unless a push fails, then its original value is restored.
 - **Time-to-live constraints**: PIA WireGuard configs expire every few weeks per PIA's token handling, requiring you to regenerate a config file periodically (which is why this app exists!).
 - **Key safety**: the generated config contains private encryption keys. Treat them like a password and manage them securely.
   > [!IMPORTANT]
   >
-  > **Push to router**: the app assumes that <font color="red"><b>only one WireGuard VPN is active at any time</b></font>, when you save the config to your router that "slot" will become the active VPN replacing any previously active slot and any slot with a <font color="red"><b>kill switch</b></font> will be deactivated and the kill switch together with NAT and firewalling will be applied to the newly saved slot.
+  > **Push to router**: the app assumes that <b>only one WireGuard VPN is active at any time</b>, when you save the config to your router that "slot" will become the active VPN replacing any previously active slot and any slot with a <b>kill switch</b> will be deactivated and the kill switch together with NAT and firewalling will be applied to the newly saved slot.
 
 ---
 
