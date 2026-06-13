@@ -1,5 +1,18 @@
-// pia_service.dart
-// Optimized WireGuard provisioning engine. Native HttpClient, concurrent probing.
+// pia_service.dart - WireGuard provisioning engine. Native HttpClient, concurrent probing.
+//
+// This program is free software: you can redistribute it and/or modify it under the terms
+// of the GNU General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+//without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+//See the GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along with this program.
+// If not, see https://www.gnu.org/licenses/.
+//
+// Copyright (C) 2026 Andrew Newbury.
+//
 
 import 'dart:async';
 import 'dart:convert';
@@ -45,15 +58,11 @@ class RegResponse {
 }
 
 class PiaService {
-  static const _serverListUrl =
-      'https://serverlist.piaservers.net/vpninfo/servers/v6';
-  static const _tokenUrl =
-      'https://www.privateinternetaccess.com/gtoken/generateToken';
-  static const _caCertUrl =
-      'https://raw.githubusercontent.com/pia-foss/manual-connections/master/ca.rsa.4096.crt';
+  static const _serverListUrl = 'https://serverlist.piaservers.net/vpninfo/servers/v6';
+  static const _tokenUrl = 'https://www.privateinternetaccess.com/gtoken/generateToken';
+  static const _caCertUrl = 'https://raw.githubusercontent.com/pia-foss/manual-connections/master/ca.rsa.4096.crt';
 
-  final HttpClient _client = HttpClient()
-    ..connectionTimeout = const Duration(seconds: 10);
+  final HttpClient _client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
 
   // Helper for native GET request strings
   Future<String> _httpGet(String url) async {
@@ -75,8 +84,7 @@ class PiaService {
         throw Exception('Format error');
       }
 
-      final decoded =
-          jsonDecode(body.substring(0, newlineIdx)) as Map<String, dynamic>;
+      final decoded = jsonDecode(body.substring(0, newlineIdx)) as Map<String, dynamic>;
       final rawRegions = decoded['regions'] as List? ?? [];
 
       final regions = rawRegions
@@ -84,9 +92,7 @@ class PiaService {
             final servers = r['servers'] as Map<String, dynamic>? ?? {};
             return Region(
               id: r['id'] ?? '',
-              wgServers: (servers['wg'] as List? ?? [])
-                  .map((s) => WgServer(ip: s['ip'] ?? '', cn: s['cn'] ?? ''))
-                  .toList(),
+              wgServers: (servers['wg'] as List? ?? []).map((s) => WgServer(ip: s['ip'] ?? '', cn: s['cn'] ?? '')).toList(),
             );
           })
           .where((r) => r.wgServers.isNotEmpty)
@@ -106,12 +112,10 @@ class PiaService {
     final tasks = servers.map((server) async {
       try {
         final start = DateTime.now();
-        final socket = await Socket.connect(server.ip, 1337,
-            timeout: const Duration(seconds: 2));
+        final socket = await Socket.connect(server.ip, 1337, timeout: const Duration(seconds: 2));
         final latency = DateTime.now().difference(start);
         await socket.close();
-        onProgress
-            ?.call(' ${server.ip} responded in ${latency.inMilliseconds}ms');
+        onProgress?.call(' ${server.ip} responded in ${latency.inMilliseconds}ms');
         return ProbeResult(server: server, latency: latency);
       } catch (e) {
         onProgress?.call('  ${server.ip} failed: $e');
@@ -133,14 +137,12 @@ class PiaService {
   }
 
   // Request operational token via HTTP Basic Auth
-  Future<String> getToken(String username, String password,
-      {void Function(String)? onProgress}) async {
+  Future<String> getToken(String username, String password, {void Function(String)? onProgress}) async {
     onProgress?.call('Authenticating with PIA...');
     try {
       final request = await _client.postUrl(Uri.parse(_tokenUrl));
       final credentials = base64Encode(utf8.encode('$username:$password'));
-      request.headers
-          .set(HttpHeaders.authorizationHeader, 'Basic $credentials');
+      request.headers.set(HttpHeaders.authorizationHeader, 'Basic $credentials');
       final response = await request.close();
       // 1. Read the response body payload regardless of the status code
       final body = await response.transform(utf8.decoder).join();
@@ -161,8 +163,7 @@ class PiaService {
         throw Exception('HTTP ${response.statusCode} - $detailedError');
       }
 
-      final token =
-          (jsonDecode(body) as Map<String, dynamic>)['token'] as String? ?? '';
+      final token = (jsonDecode(body) as Map<String, dynamic>)['token'] as String? ?? '';
       if (token.isEmpty) {
         throw Exception('Empty token received');
       }
@@ -178,26 +179,19 @@ class PiaService {
 
   // Generates WireGuard keypair using secure random bytes and scalar clamping
   (String, String) generateWgKeypair() {
-    final priv = Uint8List.fromList(
-        List.generate(32, (_) => Random.secure().nextInt(256)));
+    final priv = Uint8List.fromList(List.generate(32, (_) => Random.secure().nextInt(256)));
     priv[0] &= 248;
     priv[31] &= 127;
     priv[31] |= 64;
-    return (
-      base64Encode(priv),
-      base64Encode(x25519.X25519(priv, x25519.basePoint))
-    );
+    return (base64Encode(priv), base64Encode(x25519.X25519(priv, x25519.basePoint)));
   }
 
   // Registers WireGuard public key using custom SecurityContext pinning
-  Future<RegResponse> registerKey(
-      WgServer server, String token, String publicKeyB64,
-      {void Function(String)? onProgress}) async {
+  Future<RegResponse> registerKey(WgServer server, String token, String publicKeyB64, {void Function(String)? onProgress}) async {
     final caCertPem = await _httpGet(_caCertUrl);
     onProgress?.call('Registering key with ${server.ip}...');
 
-    final secCtx = SecurityContext(withTrustedRoots: false)
-      ..setTrustedCertificatesBytes(utf8.encode(caCertPem));
+    final secCtx = SecurityContext(withTrustedRoots: false)..setTrustedCertificatesBytes(utf8.encode(caCertPem));
     final localClient = HttpClient(context: secCtx)
       ..badCertificateCallback = (X509Certificate cert, String host, int port) {
         // The CA pin in SecurityContext validates the chain.
@@ -261,8 +255,7 @@ class PiaService {
       throw Exception('No WG servers in region.');
     }
 
-    final probeResults = await probeLatency(selected.wgServers,
-        regionId: region, onProgress: onProgress);
+    final probeResults = await probeLatency(selected.wgServers, regionId: region, onProgress: onProgress);
     final responding = probeResults.where((r) => !r.failed).toList();
     if (responding.isEmpty) {
       throw Exception('All latency probes failed.');
@@ -270,15 +263,13 @@ class PiaService {
 
     final bestServer = responding.first.server;
     final bestLatency = responding.first.latency?.inMilliseconds ?? 0;
-    onProgress?.call(
-        'Selected ${bestServer.ip} ${bestServer.cn.toLowerCase()} ${bestLatency}ms');
+    onProgress?.call('Selected ${bestServer.ip} ${bestServer.cn.toLowerCase()} ${bestLatency}ms');
 
     final token = await getToken(username, password, onProgress: onProgress);
 
     onProgress?.call('Generating WireGuard keypair...');
     final (privateKey, publicKey) = generateWgKeypair();
-    final reg =
-        await registerKey(bestServer, token, publicKey, onProgress: onProgress);
+    final reg = await registerKey(bestServer, token, publicKey, onProgress: onProgress);
 
     return buildConfig(
       privateKey: privateKey,

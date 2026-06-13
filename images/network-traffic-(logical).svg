@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 1060" width="100%" preserveAspectRatio="xMidYMid meet" style="max-width:1200px;height:auto;font-family:'Segoe UI',Arial,sans-serif;background:#ffffff" role="img" aria-labelledby="t d">
-  <title id="t">PIA WireGuard Config — Network Traffic Flow</title>
+  <title id="t">Logical network traffic flow</title>
   <desc id="d">All outbound and inbound network connections made by lib/main.dart, lib/pia_service.dart and lib/router_push.dart: HTTPS API/token/CA-cert calls, TCP 1337 latency probes, cert-pinned HTTPS 1337 key registration, UDP 51820 WireGuard tunnel, SSH 22 router push, DNS resolution and browser-launched links, plus VPN egress through the PIA public IP pool.</desc>
 
   <defs>
@@ -21,7 +21,7 @@
   </defs>
 
   <!-- ===== Title ===== -->
-  <text x="650" y="34" text-anchor="middle" style="font:700 24px 'Segoe UI',Arial,sans-serif;fill:#102027">PIA WireGuard Config — Network Traffic Flow</text>
+  <text x="650" y="34" text-anchor="middle" style="font:700 24px 'Segoe UI',Arial,sans-serif;fill:#102027">Logical network traffic flow</text>
   <text x="650" y="58" text-anchor="middle" style="font:13px 'Segoe UI',Arial,sans-serif;fill:#607D8B">Every endpoint, port &amp; protocol extracted from lib/main.dart · lib/pia_service.dart · lib/router_push.dart  ·  solid = outbound request, dashed = inbound response / optional</text>
   <text x="650" y="76" text-anchor="middle" style="font:11px 'Segoe UI',Arial,sans-serif;fill:#9E9E9E">
   <tspan font-weight="bold">Note:</tspan> All IP addresses shown are for illustration only.

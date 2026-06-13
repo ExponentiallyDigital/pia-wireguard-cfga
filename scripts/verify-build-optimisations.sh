@@ -61,7 +61,7 @@ check_sysctl() {
     if [[ "$actual" == "$expected" ]]; then
         green "$key = $expected"
     else
-        red "$key incorrect (got $actual)"
+        red "$key incorrect: expected $expected got $actual"
     fi
 }
 
@@ -101,9 +101,6 @@ if [[ -f "$GP" ]]; then
         "org.gradle.parallel=true"
         "kotlin.incremental=true"
         "android.enableDexingArtifactTransform=true"
-        "android.enableAapt2=true"
-        "android.enableD8=true"
-        "android.enableR8=true"
     )
 
     ALL_OK=true

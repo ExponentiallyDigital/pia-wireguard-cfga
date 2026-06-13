@@ -1,4 +1,4 @@
-# Contributing to **pia‑wireguard‑cfga**
+# Contributing to pia‑wireguard‑cfga
 
 Thank you for your interest in contributing to **pia‑wireguard‑cfga** — a security‑sensitive, reproducible‑build Android application that generates Private Internet Access (PIA) WireGuard configurations and optionally deploys them to Asuswrt‑Merlin routers.
 
@@ -22,15 +22,15 @@ Contributions must respect these principles.
 
 ## How to contribute
 
-### 1. **Fork the repository**[v](url)
+### 1. Fork the repository
 
 Create your own fork on GitHub and clone it locally.
 
-### 2. **Create a feature branch**
+### 2. Create a feature branch
 
 Use a descriptive branch name:
 
-``` bash
+```bash
 git checkout -b feature/<short-description>
 ```
 
@@ -40,45 +40,48 @@ Examples:
 - `fix/latency-probe-timeout`
 - `docs/update-build-instructions`
 
-### 3. **Set up your development environment**
+### 3. Set up your development environment
 
 Follow the build instructions from the README:
 
-- Flutter SDK ≥ 3.10  
-- Android Studio + JDK 17  
-- Android SDK Command-line Tools  
-- Physical device or AVD  
+- Flutter SDK ≥ 3.10
+- Android Studio + JDK 17
+- Android SDK Command-line Tools
+- Physical device or AVD
 - Run:
 
-``` bash
+```bash
 flutter clean
 flutter pub get --enforce-lockfile
 dart run flutter_launcher_icons
 ```
 
-### 4. **Follow code style & quality rules**
+### 4. Follow code style & quality rules
 
 Before committing:
 
-- Run static analysis  
-``` bash
+- Run static analysis
+
+```bash
 flutter analyze
 ```
 
-``` bash
-- Format all Dart code  
+```bash
+- Format all Dart code
 flutter format .
 ```
 
 - Run tests
-``` bash
+
+```bash
 flutter test --coverage
 ```
 
+> [!NOTE]
 > This project targets **>90% test coverage**.  
 > New features must include tests; PRs without tests will not be accepted.
 
-### 5. **Respect dependency pinning**
+### 5. Respect dependency pinning
 
 This project uses **Gradle dependency locking in strict mode** and pinned Dart dependencies.
 
@@ -87,7 +90,7 @@ If you add or update dependencies:
 1. Update the relevant Gradle or Dart manifest.
 2. Regenerate lockfiles:
 
-``` bash
+```bash
 ./android/gradlew -p android :dependencies :app:dependencies --write-locks
 ```
 
@@ -104,19 +107,19 @@ If you modify workflows:
 - Run the repository’s `update-shgas.ps1` script to regenerate pinned SHAs.
 - Commit the updated workflow files.
 
-### 7. **Commit your changes**
+### 7. Commit your changes
 
 Use clear, conventional commit messages:
 
-``` bash
+```bash
 git commit -m "feat: add router slot description parsing"
 git commit -m "fix: correct CA pinning fallback logic"
 git commit -m "docs: update screenshots for tablet layout"
 ```
 
-### 8. **Push and open a pull request**
+### 8. Push and open a pull request
 
-``` bash
+```bash
 git push origin feature/<short-description>
 ```
 
@@ -136,17 +139,17 @@ Your PR **must include**:
 
 Because this app handles:
 
-- WireGuard private keys  
-- PIA credentials  
-- Router SSH credentials  
-- Certificate pinning  
-- Memory‑resident secrets  
+- WireGuard private keys
+- PIA credentials
+- Router SSH credentials
+- Certificate pinning
+- Memory‑resident secrets
 
 …any contribution that touches authentication, cryptography, memory handling, or router‑push logic will undergo **enhanced review**.
 
 If you believe you have found a security issue:
 
-**Do not open a public issue.** Follow the private reporting process in **SECURITY.md**.
+Please **do not open a public issue.** Follow the private reporting process in **SECURITY.md**.
 
 ---
 
@@ -161,7 +164,7 @@ All new features must include:
 
 Coverage reports can be generated with:
 
-``` bash
+```bash
 flutter test --coverage
 fcr coverage/lcov.info --open
 ```
@@ -172,11 +175,11 @@ fcr coverage/lcov.info --open
 
 To maintain reproducible builds:
 
-- Never commit keystore files  
-- Never commit generated artifacts  
-- Never modify CI signing logic  
-- Never introduce dynamic or floating dependency versions  
-- Never bypass lockfile enforcement  
+- Never commit keystore files
+- Never commit generated artifacts
+- Never modify CI signing logic
+- Never introduce dynamic or floating dependency versions
+- Never bypass lockfile enforcement
 
 If a PR breaks reproducibility, it will be rejected.
 
@@ -209,10 +212,10 @@ Use the GitHub Issues page:
 Be respectful, constructive, and security‑minded.  
 This project values:
 
-- Clear communication  
-- Evidence‑based reasoning  
-- High‑quality engineering  
-- Respect for user privacy and safety  
+- Clear communication
+- Evidence‑based reasoning
+- High‑quality engineering
+- Respect for user privacy and safety
 
 ---
 
@@ -225,4 +228,4 @@ By contributing, you agree that your contributions will be licensed under the **
 ## Thank you
 
 We deeply appreciate security researchers and contributors who help keep this project safe.
-Your efforts directly protect users’ privacy, routers, and VPN credentials. If you have questions about this policy, please contact the maintainers privately.
+Your efforts directly protect users’ privacy, routers, and VPN credentials. If you have questions about this policy, please [open an issue](https://github.com/ExponentiallyDigital/pia-wireguard-cfga/issues) and/or see **SECURITY.md**.

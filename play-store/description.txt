@@ -1,0 +1,35 @@
+PIA WireGuard Config
+
+The simplest way to generate and push PIA WireGuard configs to your router.
+
+Automated WireGuard configuration utility for Private Internet Access (PIA) users.
+
+When your VPN configurations expire, PIA WireGuard Config App replaces manual scripts with a streamlined workflow. It connects to PIA's provisioning API, benchmarks latency, and exports a .conf payload in seconds. For compatible home networks, write configurations directly into Asuswrt-Merlin router client slots seamlessly, no computer required.
+
+
+The simplicity breakthrough: couch-to-router in 10 seconds
+
+Generating PIA WireGuard configurations by hand requires significant expertise. Official scripts require a steep learning curve and a desktop terminal. Other workarounds require running desktop software to capture keys from local storage. This utility makes the migration to high-speed WireGuard completely effortless without needing a computer. The app wraps enterprise-grade automation into a simple mobile interface: tap your desired region from a live latency list, enter your credentials, and tap Generate Config and Push Config to Router. Your encrypted tunnel is active before you can even stand up from the couch.
+
+
+Why run a VPN on your router?
+
+Configuring a VPN at the router level secures your entire household at the source, instantly protecting devices like smart TVs and consoles that cannot run VPN software. While OpenVPN offers stability, it is resource-intensive, capping speeds at around 100 Mbps on mid-range hardware and pinning the router CPU at 100%. Switching your router to WireGuard reduces overhead, allowing your hardware to operate closer to actual ISP speed. Testing on a 500 Mbps HFC connection saw speeds jump from 154 Mbps under OpenVPN to 323 Mbps under WireGuard on identical hardware.
+
+
+Core functionality and security
+
+The app measures live TCP latency against port 1337 across available target nodes to ensure your profile targets the fastest path. It safely pushes configurations directly into router slots wgc1 to wgc5 with automated snapshot backups and state rollback recovery if verification fails. Because PIA WireGuard tokens expire periodically, this tool simplifies recurring file regeneration down to a few taps.
+
+Built with a strict zero-persistence footprint to protect credentials and private keys, volatile variables reside exclusively in system RAM and are never written to disk or logged. A 3-minute idle countdown timer automatically wipes the screen UI, form states, and memory addresses if left unattended. Copied configs trigger a 60-second countdown, after which the system clipboard is overwritten to mitigate background scraping. The app enforces the native Android FLAG_SECURE flag to block screenshots and blank the app view in the Recent Apps interface. Interactive textboxes explicitly disable predictive dictionary caching, auto-correction tracking, and keyboard learning behaviours.
+
+
+Open source and disclaimers
+
+This application features verifiable build provenance, pinned dependencies to mitigate vulnerabilities, and open source code available for public audit. Comprehensive deployment flows, local build steps, and diagrams are available for review in the project's README.md.
+
+Requires an active PIA subscription. Router push requires an ASUS router running Asuswrt-Merlin firmware with WireGuard client support and SSH access enabled. Speeds depend on your router CPU and ISP plan. This independent open-source utility is released under the GNU GPL v3.0.
+
+This app is not affiliated with, endorsed by, or associated with Private Internet Access or WireGuard. WireGuard is a registered trademark of Jason A. Donenfeld. Private Internet Access and PIA are trademarks of their respective owners.
+
+Source Code: https://github.com/ExponentiallyDigital/pia-wireguard-cfga

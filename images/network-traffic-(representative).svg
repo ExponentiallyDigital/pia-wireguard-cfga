@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 980" width="100%" preserveAspectRatio="xMidYMid meet" style="max-width:1200px;height:auto;font-family:'Segoe UI',Arial,sans-serif;background:#ffffff" role="img" aria-labelledby="t d">
-  <title id="t">PIA WireGuard Config — Network Traffic Flow (always-on VPN)</title>
-  <desc id="d">Router-level WireGuard tunnel. Underlay: Device, Router/NAT, ISP, public Internet, PIA WireGuard server, carrying encrypted UDP 51820. Logical tunnel overlay runs Router to PIA. After PIA the traffic is decrypted, NATed via the 172.16/16 internal network and the 185.230.125.x public pool, then egresses to Internet and external services. All IP addresses illustrative.</desc>
+  <title id="t">Representative network traffic flow (always-on VPN)</title>
+  <desc id="d">Router-level WireGuard tunnel. Underlay: Device, Router/NAT, ISP, public Internet, PIA WireGuard server, carrying encrypted UDP 51820. Logical tunnel overlay runs Router to PIA. After PIA the traffic is decrypted and NATed via the 172.16/16 internal network and 185.230.125.x pool, returns to the public Internet, and reaches external services. All IP addresses illustrative.</desc>
 
   <defs>
     <style>
@@ -18,7 +18,7 @@
   </defs>
 
   <!-- ===== Titles ===== -->
-  <text x="620" y="30" text-anchor="middle" style="font:700 21px 'Segoe UI',Arial,sans-serif;fill:#102027">PIA WireGuard Config — Network Traffic Flow (always-on VPN)</text>
+  <text x="620" y="30" text-anchor="middle" style="font:700 21px 'Segoe UI',Arial,sans-serif;fill:#102027">Representative network traffic flow (always-on VPN)</text>
   <text x="620" y="53" text-anchor="middle" style="font:12px 'Segoe UI',Arial,sans-serif;fill:#607D8B">All client traffic flows Device ⇄ Router/NAT ⇄ ISP ⇄ Internet ⇄ PIA; the router-level WireGuard tunnel runs over those hops, then PIA egresses to external services.</text>
   <text x="620" y="74" text-anchor="middle" style="font:12px 'Segoe UI',Arial,sans-serif;fill:#455A64"><tspan font-weight="700">Note:</tspan> All IP addresses shown are for illustration only.</text>
 
@@ -89,15 +89,14 @@
   <text x="1002" y="436" text-anchor="middle" class="nss">CN-pinned cert (pia-foss CA)</text>
   <text x="1002" y="462" text-anchor="middle" class="nss" style="fill:#2E7D32">↳ tunnel terminates → decrypt</text>
 
-  <!-- ===================== UNDERLAY BACKBONE LINKS ===================== -->
+  <!-- ===================== UNDERLAY BACKBONE LINKS (encrypted) ===================== -->
   <path class="flow" stroke="#2E7D32" marker-start="url(#ag)" marker-end="url(#ag)" d="M415,390 L485,390"/>
   <path class="flow" stroke="#2E7D32" marker-start="url(#ag)" marker-end="url(#ag)" d="M600,390 L632,388"/>
   <path class="flow" stroke="#2E7D32" marker-start="url(#ag)" marker-end="url(#ag)" d="M812,388 L885,390"/>
   <g><rect class="lbg" x="424" y="368" width="48" height="16" rx="3"/><text x="428" y="380" class="lb" fill="#2E7D32" style="font-size:11px">WAN</text></g>
   <text x="640" y="452" text-anchor="middle" class="nss" style="fill:#2E7D32">underlay (physical path): encrypted WireGuard packets · UDP 51820 →</text>
 
-  <!-- ===================== EGRESS (vertical drop) ===================== -->
-  <!-- PIA Infra -> PIA VPN exit -->
+  <!-- ===================== PIA INTERNAL DECRYPT/NAT DROP (encrypted side) ===================== -->
   <path class="flow" stroke="#2E7D32" marker-start="url(#ag)" marker-end="url(#ag)" d="M1002,485 L1002,545"/>
   <g><rect class="lbg" x="1010" y="507" width="118" height="16" rx="3"/><text x="1014" y="519" class="lb" fill="#2E7D32" style="font-size:11px">decrypt → 172.16.x</text></g>
 
@@ -108,15 +107,20 @@
   <text x="1002" y="607" text-anchor="middle" class="nss">peer iface 172.16.1.50 · decrypt</text>
   <text x="1002" y="630" text-anchor="middle" class="ns" style="font-size:11.5px;fill:#1B5E20">public IP pool (source NAT)</text>
   <text x="1002" y="648" text-anchor="middle" class="nss">185.230.125.10 – .50</text>
-  <text x="1002" y="670" text-anchor="middle" class="nss" style="fill:#2E7D32">↳ egress to public internet</text>
+  <text x="1002" y="670" text-anchor="middle" class="nss" style="fill:#455A64">↳ egress to public internet</text>
 
-  <!-- PIA VPN exit -> Internet & External Services -->
-  <path class="flow" stroke="#2E7D32" marker-start="url(#ag)" marker-end="url(#ag)" d="M1002,685 L1002,745"/>
-  <g><rect class="lbg" x="740" y="707" width="252" height="17" rx="3"/><text x="744" y="720" class="lb" fill="#2E7D32" style="font-size:11px">NAT egress → public internet · src 185.230.125.x</text></g>
+  <!-- ===================== DECRYPTED EGRESS (slate) ===================== -->
+  <!-- PIA VPN exit -> Internet (public) -->
+  <path class="flow" stroke="#455A64" marker-start="url(#asl)" marker-end="url(#asl)" d="M885,595 Q838,500 806,418"/>
+  <g><rect class="lbg" x="700" y="461" width="248" height="17" rx="4"/><text x="704" y="474" class="lb" fill="#455A64" style="font-size:11px">decrypted egress → public internet · NAT 185.230.x</text></g>
+
+  <!-- Internet (public) -> Internet & External Services -->
+  <path class="flow" stroke="#455A64" marker-start="url(#asl)" marker-end="url(#asl)" d="M788,425 Q775,632 884,800"/>
+  <g><rect class="lbg" x="748" y="697" width="132" height="17" rx="4"/><text x="752" y="710" class="lb" fill="#455A64" style="font-size:11px">to external services</text></g>
 
   <rect x="885" y="745" width="235" height="205" rx="11" fill="#ffffff" stroke="#90A4AE" stroke-width="2"/>
   <text x="1002" y="770" text-anchor="middle" class="nt" style="font-size:12.5px">Internet &amp; External Services</text>
-  <text x="1002" y="789" text-anchor="middle" class="nss">(public internet · reached via PIA egress)</text>
+  <text x="1002" y="789" text-anchor="middle" class="nss">(public internet destinations)</text>
   <rect x="903" y="800" width="11" height="11" rx="2" fill="#1E88E5"/>
   <text x="922" y="810" class="nss">CA cert · raw.githubusercontent.com :443</text>
   <rect x="903" y="828" width="11" height="11" rx="2" fill="#9E9E9E"/>
@@ -136,31 +140,33 @@
   <rect x="48" y="561" width="20" height="13" rx="2" fill="#1E88E5"/>
   <text x="78" y="572" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 443</tspan>  — Server list · GET serverlist.piaservers.net/vpninfo/servers/v6</text>
   <rect x="48" y="591" width="20" height="13" rx="2" fill="#1E88E5"/>
-  <text x="78" y="602" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 443</tspan>  — Token auth · POST privateinternetaccess.com/gtoken/generateToken (Basic)</text>
+  <text x="78" y="602" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 443</tspan>  — Token auth · POST privateinternetaccess.com/gtoken/generateToken</text>
   <rect x="48" y="621" width="20" height="13" rx="2" fill="#1E88E5"/>
-  <text x="78" y="632" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 443</tspan>  — CA certificate · GET raw.githubusercontent.com/pia-foss/…/ca.rsa.4096.crt</text>
+  <text x="78" y="632" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 443</tspan>  — CA certificate · GET raw.githubusercontent.com/…/ca.rsa.4096.crt</text>
   <rect x="48" y="651" width="20" height="13" rx="2" fill="#FF9800"/>
   <text x="78" y="662" class="lb" fill="#37474F"><tspan font-weight="700">TCP 1337</tspan>  — Latency probes · Socket.connect(serverIP, 1337) to each WG server (×N)</text>
   <rect x="48" y="681" width="20" height="13" rx="2" fill="#9C27B0"/>
-  <text x="78" y="692" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 1337</tspan>  — WG key registration · GET https://serverIP:1337/addKey (CN cert-pinned)</text>
+  <text x="78" y="692" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 1337</tspan>  — WG key registration · GET https://serverIP:1337/addKey (pinned)</text>
   <rect x="48" y="711" width="20" height="13" rx="2" fill="#4CAF50"/>
-  <text x="78" y="722" class="lb" fill="#37474F"><tspan font-weight="700">UDP 51820</tspan>  — WireGuard tunnel · Endpoint serverIP:port (the always-on tunnel itself)</text>
+  <text x="78" y="722" class="lb" fill="#37474F"><tspan font-weight="700">UDP 51820</tspan>  — WireGuard tunnel · Endpoint serverIP:port (the always-on tunnel)</text>
   <rect x="48" y="741" width="20" height="13" rx="2" fill="#F44336"/>
-  <text x="78" y="752" class="lb" fill="#37474F"><tspan font-weight="700">SSH 22</tspan>  — Router push · SSHSocket.connect(routerIP, 22): nvram/wg/service  [LAN-local]</text>
+  <text x="78" y="752" class="lb" fill="#37474F"><tspan font-weight="700">SSH 22</tspan>  — Router push · SSHSocket.connect(routerIP, 22)  [LAN-local, not tunnelled]</text>
   <rect x="48" y="771" width="20" height="13" rx="2" fill="#9E9E9E"/>
   <text x="78" y="782" class="lb" fill="#37474F"><tspan font-weight="700">DNS 53</tspan>  — Hostname resolution (OS) for the HTTPS endpoints above</text>
   <rect x="48" y="801" width="20" height="13" rx="2" fill="#1E88E5"/>
-  <text x="78" y="812" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 443</tspan>  — In-app web links · url_launcher → github.com / exponentiallydigital.com</text>
+  <text x="78" y="812" class="lb" fill="#37474F"><tspan font-weight="700">HTTPS 443</tspan>  — In-app web links · url_launcher → github.com / the author site</text>
 
   <!-- mini legend -->
-  <line x1="48" y1="848" x2="86" y2="848" stroke="#455A64" stroke-width="2.6" marker-start="url(#asl)" marker-end="url(#asl)"/>
-  <text x="94" y="852" class="nss" fill="#37474F">⇄ bidirectional (request / response)</text>
-  <rect x="320" y="841" width="38" height="14" rx="7" fill="#4CAF50" fill-opacity="0.12" stroke="#2E7D32" stroke-dasharray="5 3"/>
-  <text x="366" y="852" class="nss" fill="#37474F">logical tunnel (overlay)</text>
-  <line x1="560" y1="848" x2="598" y2="848" stroke="#2E7D32" stroke-width="2.6"/>
-  <text x="606" y="852" class="nss" fill="#37474F">encrypted underlay (UDP 51820)</text>
+  <line x1="48" y1="846" x2="84" y2="846" stroke="#455A64" stroke-width="2.6" marker-start="url(#asl)" marker-end="url(#asl)"/>
+  <text x="92" y="850" class="nss" fill="#37474F">⇄ bidirectional (req/resp)</text>
+  <rect x="252" y="839" width="36" height="14" rx="7" fill="#4CAF50" fill-opacity="0.12" stroke="#2E7D32" stroke-dasharray="5 3"/>
+  <text x="296" y="850" class="nss" fill="#37474F">logical tunnel (overlay)</text>
+  <line x1="452" y1="846" x2="488" y2="846" stroke="#2E7D32" stroke-width="2.6"/>
+  <text x="496" y="850" class="nss" fill="#37474F">encrypted underlay (UDP 51820)</text>
 
-  <text x="48" y="884" class="nss" style="fill:#607D8B">Underlay = the physical hops the encrypted packets traverse.  Overlay = the logical encrypted pipe the router builds to the PIA WG server.</text>
-  <text x="48" y="904" class="nss" style="fill:#607D8B">With the VPN always on, every flow above rides inside the tunnel and egresses from the PIA public IP pool — except SSH 22, which stays on the LAN.</text>
-  <text x="48" y="924" class="nss" style="fill:#607D8B">ICMP / ping: not used by the app.</text>
+  <!-- notes (wrapped to fit) -->
+  <text x="48" y="876" class="nss" style="fill:#607D8B">Underlay = physical hops the encrypted packets cross.  Overlay = the logical encrypted pipe (Router → PIA).</text>
+  <text x="48" y="894" class="nss" style="fill:#607D8B">Egress: PIA decrypts, NATs to the 185.230.125.x pool, then returns to the public internet to reach services.</text>
+  <text x="48" y="912" class="nss" style="fill:#607D8B">VPN always on: every flow rides inside the tunnel — except SSH 22, which stays on the LAN.</text>
+  <text x="48" y="930" class="nss" style="fill:#607D8B">ICMP / ping: not used by the app.</text>
 </svg>
