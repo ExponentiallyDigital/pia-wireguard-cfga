@@ -91,7 +91,7 @@ else
 fi
 
 # 9. Check project gradle.properties
-GP="./android/gradle.properties"
+GP="../android/gradle.properties"
 if [[ -f "$GP" ]]; then
     REQUIRED_KEYS=(
         "org.gradle.jvmargs"
