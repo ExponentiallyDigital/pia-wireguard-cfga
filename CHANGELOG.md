@@ -1,10 +1,14 @@
 # Release changes
 
-2026-06-15 version: 0.4.32+322
+2026-06-15 version: 0.4.33+323
 
 - updates to setting up an automated script for the build environment
 
-2026-06-14
+2026-06-15 version: 0.4.32+32
+
+- updates to setting up an automated script for the build environment
+
+2026-06-14 v0.4.32 build 322
 
 - split out build info to separate file
 - moved additional scripts to own folder

@@ -34,21 +34,41 @@
 
 set -euo pipefail
 
-# ─── 1. Root Privilege Check ───────────────────────────────────────────────────
+# ─── Environment & OS Validation ──────────────────────────────────────────────
+# Prevent execution on Windows native environments (Git Bash, Cygwin, MSYS)
+OS_TYPE="$(uname -s)"
+case "${OS_TYPE}" in
+  CYGWIN*|MINGW*|MSYS*|Windows_NT*)
+    echo "ERROR: This script is built exclusively for Linux."
+    echo "It cannot be executed within a Windows native shell (Git Bash/Cygwin/MSYS)."
+    exit 1
+    ;;
+esac
+
+# Prevent execution on Windows Subsystem for Linux (WSL)
+# WSL environments lack true loop devices, systemd-zram setups, and raw physical udev disk controls.
+if grep -qi 'microsoft' /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]; then
+  echo "ERROR: Windows Subsystem for Linux (WSL) detected."
+  echo "This tuner configures low-level Linux hardware optimizations (ZRAM, I/O schedulers, fstab mounts)."
+  echo "These configurations do not apply inside a WSL container managed by the Windows Host."
+  exit 1
+fi
+
+# ─── 1. Root Privilege & User Context ──────────────────────────────────────────
 if [ "$EUID" -ne 0 ]; then
   echo "ERROR: This script must be run as root (sudo)."
   exit 1
 fi
 
 TARGET_USER="${SUDO_USER:-${USER}}"
-TARGET_HOME="$(eval echo ~${TARGET_USER})"
+TARGET_HOME="$(getent passwd "${TARGET_USER}" | cut -d: -f6)"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 UNDO_FILE="${TARGET_HOME}/android_build_undo_${TIMESTAMP}.sh"
 
 print_usage() {
   cat <<EOF
 Usage: sudo $0 [RAM_GB] [DISK_DEVICE]
-  RAM_GB      : 8 | 16 | 32 | 64  (if omitted, you will be prompted)
+  RAM_GB      : 8 | 16 | 32 | 64
   DISK_DEVICE : block device or partition (e.g. /dev/sda5 or /dev/nvme0n1p3)
 EOF
 }
@@ -65,8 +85,6 @@ if [ -z "$DISK_DEVICE" ]; then
   read -rp "Enter block device target (e.g., /dev/sda5): " DISK_DEVICE
 fi
 
-# ─── 3. Early Device Validation ────────────────────────────────────────────────
-# Validate before making any system changes so we fail cleanly with no side effects.
 if [ ! -b "${DISK_DEVICE}" ]; then
   echo "ERROR: '${DISK_DEVICE}' is not a valid block device."
   print_usage
@@ -130,14 +148,10 @@ echo " Starting Optimised Build Environment Setup"
 echo " User:                ${TARGET_USER}"
 echo " Home:                ${TARGET_HOME}"
 echo " RAM tier:            ${RAM_GB}GB"
-echo " /tmp tmpfs:          ${TMPFS_SIZE}"
-echo " ZRAM:                ${ZRAM_SIZE}"
-echo " Swapfile:            ${SWAP_SIZE}"
-echo " Gradle JVM max heap: ${GRADLE_JVM_MAX}"
-echo " Drive:               ${DISK_DEVICE} (parent: ${DISK_PARENT}, scheduler: ${IO_SCHEDULER})"
+echo " Drive:               ${DISK_DEVICE} (Scheduler: ${IO_SCHEDULER})"
 echo "=========================================="
 
-# ─── 6. Initialise the Timestamped Undo Engine ─────────────────────────────────
+# ─── 5. Initialise the Timestamped Undo Engine ─────────────────────────────────
 cat << 'EOF' > "$UNDO_FILE"
 #!/usr/bin/env bash
 set -euo pipefail
@@ -148,37 +162,27 @@ fi
 echo "Initiating system recovery rollback..."
 EOF
 
-# ─── 7. Directory Layout and Ownership ─────────────────────────────────────────
+# ─── 6. Directory Layout and Ownership ─────────────────────────────────────────
 echo "[*] Creating cache directory layout..."
-
-# ~/.gradle remains on persistent storage — deliberately not mounted as tmpfs.
-# Mounting tmpfs on ~/.gradle/caches destroys all downloaded dependencies and
-# compiled build artefacts on every reboot, forcing a full cold build each session.
-# Fast scratch space for high-churn build/ output directories is provided by the
-# /tmp tmpfs configured below; symlink a project's build/ into /tmp to exploit it.
-mkdir -p "${TARGET_HOME}/.gradle/caches" \
+sudo -u "${TARGET_USER}" mkdir -p "${TARGET_HOME}/.gradle/caches" \
          "${TARGET_HOME}/.gradle/daemon" \
          "${TARGET_HOME}/.gradle/native" \
-         "${TARGET_HOME}/.gradle/wrapper"
-
-# ~/.pub-cache — persistent Dart/Flutter package cache (target of pub get).
-mkdir -p "${TARGET_HOME}/.pub-cache"
+         "${TARGET_HOME}/.gradle/wrapper" \
+         "${TARGET_HOME}/.pub-cache"
 
 chmod 1777 /tmp || true
-chown -R "${TARGET_USER}:${TARGET_USER}" "${TARGET_HOME}/.gradle"
-chown -R "${TARGET_USER}:${TARGET_USER}" "${TARGET_HOME}/.pub-cache"
 
-# ─── 8. Optimised ~/.gradle/gradle.properties ──────────────────────────────────
+# ─── 7. Optimised ~/.gradle/gradle.properties ──────────────────────────────────
 echo "[*] Writing optimised Gradle properties..."
 GRADLE_PROPS="${TARGET_HOME}/.gradle/gradle.properties"
 
 if [ -f "${GRADLE_PROPS}" ]; then
   cp "${GRADLE_PROPS}" "${GRADLE_PROPS}.bak.${TIMESTAMP}"
-  echo "[*] Existing gradle.properties backed up to: ${GRADLE_PROPS}.bak.${TIMESTAMP}"
   cat << EOF >> "$UNDO_FILE"
 echo "  - Restoring original gradle.properties..."
 if [ -f "${GRADLE_PROPS}.bak.${TIMESTAMP}" ]; then
   mv "${GRADLE_PROPS}.bak.${TIMESTAMP}" "${GRADLE_PROPS}"
+  chown "${TARGET_USER}:${TARGET_USER}" "${GRADLE_PROPS}"
 else
   rm -f "${GRADLE_PROPS}"
 fi
@@ -186,7 +190,7 @@ EOF
 else
   cat << EOF >> "$UNDO_FILE"
 echo "  - Removing generated gradle.properties block..."
-sed -i '/# BUILD TUNER START/,/# BUILD TUNER END/d' "${GRADLE_PROPS}"
+sed -i '/# BUILD TUNER START/,/# BUILD TUNER END/d' "${GRADLE_PROPS}" 2>/dev/null || true
 EOF
 fi
 
@@ -205,22 +209,21 @@ EOF
 
 chown "${TARGET_USER}:${TARGET_USER}" "${GRADLE_PROPS}"
 
-# ─── 9. fstab: /tmp Tmpfs and Swapfile ─────────────────────────────────────────
+# ─── 8. fstab: /tmp Tmpfs and Swapfile (Idempotent) ────────────────────────────
 echo "[*] Configuring fstab mount entries..."
 
-FSTAB_LINE_SWAP="/swapfile none swap sw 0 0"
-ESC_SWAP=$(printf '%s\n' "$FSTAB_LINE_SWAP" | sed 's/[[\.*^$]/\\&/g')
-
 cat << EOF >> "$UNDO_FILE"
-echo "  - Removing swapfile fstab entry..."
-sed -i '\#${ESC_SWAP}#d' /etc/fstab
+echo "  - Removing swapfile and tmpfs fstab entries..."
+sed -i '/^\/swapfile/d' /etc/fstab
+sed -i '/[[:space:]]\/tmp[[:space:]]tmpfs/d' /etc/fstab
 EOF
 
-# /tmp tmpfs: many modern Ubuntu/Debian installs enable tmp.mount via systemd,
-# which already mounts /tmp as tmpfs. Adding a fstab entry alongside it causes
-# a conflicting double-mount at boot. Detect and handle both cases.
-if systemctl is-enabled tmp.mount 2>/dev/null | grep -q "enabled"; then
-  echo "[*] systemd tmp.mount is active — configuring size via drop-in (not fstab)..."
+sed -i '/^\/swapfile/d' /etc/fstab
+FSTAB_LINE_SWAP="/swapfile none swap sw 0 0"
+echo "${FSTAB_LINE_SWAP}" >> /etc/fstab
+
+if systemctl list-unit-files tmp.mount 2>/dev/null | grep -q "tmp.mount"; then
+  echo "[*] systemd tmp.mount detected — configuring size via drop-in..."
   mkdir -p /etc/systemd/system/tmp.mount.d
   cat > /etc/systemd/system/tmp.mount.d/build-size.conf << EOF
 [Mount]
@@ -235,14 +238,9 @@ rm -f /etc/systemd/system/tmp.mount.d/build-size.conf
 systemctl daemon-reload
 EOF
 else
+  sed -i '/[[:space:]]\/tmp[[:space:]]tmpfs/d' /etc/fstab
   FSTAB_LINE_TMP="tmpfs /tmp tmpfs size=${TMPFS_SIZE},mode=1777 0 0"
-  ESC_TMP=$(printf '%s\n' "$FSTAB_LINE_TMP" | sed 's/[[\.*^$]/\\&/g')
-  cat << EOF >> "$UNDO_FILE"
-echo "  - Removing /tmp fstab entry..."
-sed -i '\#${ESC_TMP}#d' /etc/fstab
-umount /tmp || true
-EOF
-  grep -Fxq "${FSTAB_LINE_TMP}" /etc/fstab || echo "${FSTAB_LINE_TMP}" >> /etc/fstab
+  echo "${FSTAB_LINE_TMP}" >> /etc/fstab
   mountpoint -q /tmp || mount /tmp || true
 fi
 
@@ -290,7 +288,7 @@ else
   swapon --show 2>/dev/null | grep -q "/swapfile" || swapon /swapfile 2>/dev/null || true
 fi
 
-# ─── 11. ZRAM Configuration ────────────────────────────────────────────────────
+# ─── 10. ZRAM Configuration ────────────────────────────────────────────────────
 echo "[*] Configuring ZRAM compressed swap device..."
 ZRAM_CONF="/etc/systemd/zram-generator.conf"
 
@@ -444,7 +442,7 @@ fs.file-max=2097152
 EOF
 sysctl --system || true
 
-# ─── 13. I/O Scheduler and Read-Ahead (udev) ───────────────────────────────────
+# ─── 12. I/O Scheduler and Read-Ahead (udev) ───────────────────────────────────
 echo "[*] Writing device-type-aware I/O optimisation rules (udev)..."
 UDEV_RULE="/etc/udev/rules.d/60-io-scheduler.rules"
 
@@ -480,7 +478,7 @@ udevadm control --reload
 udevadm trigger --action=change "/dev/${DISK_PARENT}" || true
 blockdev --setra 4096 "/dev/${DISK_PARENT}" || true
 
-# ─── 14. Per-User Resource Limits ──────────────────────────────────────────────
+# ─── 13. Per-User Resource Limits ──────────────────────────────────────────────
 echo "[*] Writing per-user resource limits..."
 LIMITS_FILE="/etc/security/limits.d/99-${TARGET_USER}-build.conf"
 
@@ -500,9 +498,12 @@ ${TARGET_USER} soft nproc  65536
 ${TARGET_USER} hard nproc  65536
 EOF
 
-# ─── 15. User Shell Environment (~/.bashrc) ────────────────────────────────────
+# ─── 14. User Shell Environment (~/.bashrc) ────────────────────────────────────
 echo "[*] Injecting build environment variables into ~/.bashrc..."
 BASHRC_FILE="${TARGET_HOME}/.bashrc"
+
+touch "${BASHRC_FILE}"
+chown "${TARGET_USER}:${TARGET_USER}" "${BASHRC_FILE}"
 
 cat << EOF >> "$UNDO_FILE"
 echo "  - Removing build environment block from .bashrc..."
@@ -513,12 +514,6 @@ EOF
 # Remove any existing managed block before re-inserting.
 sed -i '/# ANDROID BUILD VARIABLES START/,/# ANDROID BUILD VARIABLES END/d' "${BASHRC_FILE}"
 
-# Excluded intentionally:
-#   ANDROID_HOME / ANDROID_SDK_ROOT / JAVA_HOME : set by the Flutter/Android SDK
-#       installer and must not be overwritten by this script.
-#   USE_CCACHE / CCACHE_EXEC / CCACHE_DIR        : AOSP-specific; intercept C/C++
-#       compiler invocations only. They have no effect on Flutter/Gradle/Dart builds.
-#
 # Single-quoted heredoc: ${HOME} and ${PUB_CACHE} expand at shell runtime per the
 # active user, not at install time under root context.
 cat << 'EOF' >> "${BASHRC_FILE}"
@@ -528,7 +523,7 @@ export PUB_CACHE="${HOME}/.pub-cache"
 # ANDROID BUILD VARIABLES END
 EOF
 
-# ─── 16. kvm Group Membership (Android Emulator Support) ───────────────────────
+# ─── 15. kvm Group Membership (Android Emulator Support) ───────────────────────
 if getent group kvm > /dev/null 2>&1; then
   echo "[*] Adding ${TARGET_USER} to kvm group for Android emulator hardware acceleration..."
   usermod -aG kvm "${TARGET_USER}"
@@ -536,33 +531,9 @@ if getent group kvm > /dev/null 2>&1; then
 echo "  - Removing ${TARGET_USER} from kvm group..."
 gpasswd -d "${TARGET_USER}" kvm || true
 EOF
-else
-  echo "[~] kvm group not found — skipping. Install qemu-kvm if Android emulator support is needed."
 fi
 
-# ─── 17. SDK Licence Acceptance and Optional Gradle Pre-Warm ───────────────────
-if command -v sdkmanager >/dev/null 2>&1; then
-  echo "[*] Accepting SDK licences and caching cmake..."
-  su - "${TARGET_USER}" -c "yes | sdkmanager --licenses" || true
-  su - "${TARGET_USER}" -c "sdkmanager 'cmake;3.22.1'" || true
-fi
-
-# Pre-warm the Gradle daemon and seed the dependency cache when run from inside
-# a Flutter project directory that contains an android/ subdirectory with a
-# Gradle wrapper.
-#
-# Excluded flags (both were present in the original script and are counter-productive):
-#   --no-daemon          : discards the warmed daemon immediately after the run —
-#                          the opposite of what pre-warming is trying to achieve
-#   --refresh-dependencies: forces a complete dependency re-download from remote
-#                          repositories — the opposite of seeding a local cache
-PROJECT_DIR="$(pwd)"
-if [ -d "${PROJECT_DIR}/android" ] && [ -f "${PROJECT_DIR}/android/gradlew" ]; then
-  echo "[*] Pre-warming Gradle daemon and seeding dependency cache..."
-  su - "${TARGET_USER}" -c "cd '${PROJECT_DIR}/android' && ./gradlew dependencies" || true
-fi
-
-# ─── 18. Verification Pass ─────────────────────────────────────────────────────
+# ─── 16. Verification Pass ─────────────────────────────────────────────────────
 echo " "
 echo "=========================================="
 echo " Post-Installation Verification"
@@ -570,10 +541,9 @@ echo "=========================================="
 
 VERIFY_FAIL=0
 
-# /tmp tmpfs
-if mountpoint -q /tmp; then
-  TMP_SIZE=$(df -h /tmp | awk 'NR==2{print $2}')
-  echo "[✓] /tmp is mounted as tmpfs (size: ${TMP_SIZE})"
+# /tmp tmpfs (FIXED: Robust mount detection instead of fragile string matching)
+if findmnt -n -t tmpfs /tmp > /dev/null; then
+  echo "[✓] /tmp is actively mounted as tmpfs"
 else
   echo "[✗] /tmp is NOT mounted as tmpfs"
   VERIFY_FAIL=1
@@ -581,8 +551,7 @@ fi
 
 # Swapfile
 if swapon --show | grep -q "/swapfile"; then
-  SWAP_INFO=$(swapon --show | awk '/swapfile/{print $1, $3}')
-  echo "[✓] Swapfile active: ${SWAP_INFO}"
+  echo "[✓] Swapfile is active"
 else
   echo "[✗] Swapfile is NOT active"
   VERIFY_FAIL=1
@@ -615,7 +584,7 @@ else
   VERIFY_FAIL=1
 fi
 
-# I/O scheduler (reads from sysfs; active state, not just udev rule presence)
+# I/O scheduler active state check
 SCHED_PATH="/sys/block/${DISK_PARENT}/queue/scheduler"
 if [ -f "${SCHED_PATH}" ]; then
   echo "[✓] I/O scheduler (${DISK_PARENT}): $(cat "${SCHED_PATH}")"
@@ -623,7 +592,7 @@ else
   echo "[~] Scheduler sysfs path not readable at ${SCHED_PATH}"
 fi
 
-# read_ahead_kb
+# read_ahead_kb check
 RA_PATH="/sys/block/${DISK_PARENT}/queue/read_ahead_kb"
 if [ -f "${RA_PATH}" ]; then
   echo "[✓] read_ahead_kb (${DISK_PARENT}): $(cat "${RA_PATH}")"
@@ -631,7 +600,7 @@ else
   echo "[~] read_ahead_kb sysfs path not readable at ${RA_PATH}"
 fi
 
-# Per-user resource limits
+# Per-user resource limits verification
 if grep -q "nofile" "${LIMITS_FILE}" 2>/dev/null; then
   echo "[✓] Per-user resource limits written (effective on next login)"
 else
@@ -639,7 +608,7 @@ else
   VERIFY_FAIL=1
 fi
 
-# gradle.properties
+# gradle.properties verification
 if grep -q "org.gradle.daemon=true"   "${GRADLE_PROPS}" && \
    grep -q "org.gradle.caching=true"  "${GRADLE_PROPS}" && \
    grep -q "org.gradle.parallel=true" "${GRADLE_PROPS}"; then
@@ -650,7 +619,7 @@ else
   VERIFY_FAIL=1
 fi
 
-# ~/.pub-cache
+# ~/.pub-cache directory verification
 if [ -d "${TARGET_HOME}/.pub-cache" ]; then
   echo "[✓] ~/.pub-cache directory is present"
 else
@@ -658,7 +627,7 @@ else
   VERIFY_FAIL=1
 fi
 
-# kvm group membership
+# kvm group membership check
 if getent group kvm > /dev/null 2>&1; then
   if id -nG "${TARGET_USER}" | grep -qw kvm; then
     echo "[✓] ${TARGET_USER} is a member of the kvm group (effective on next login)"
@@ -667,14 +636,17 @@ if getent group kvm > /dev/null 2>&1; then
   fi
 fi
 
-# Flutter doctor — checked against TARGET_USER's PATH, not root's, since Flutter
-# is typically a per-user installation.
+# Interactive user environment flutter doctor check
 if su - "${TARGET_USER}" -c "command -v flutter" > /dev/null 2>&1; then
   echo "[*] Running flutter doctor..."
   su - "${TARGET_USER}" -c "flutter doctor" 2>&1 | grep -E "^\[" | head -10 || true
 else
   echo "[~] flutter not found on ${TARGET_USER}'s PATH — skipping flutter doctor"
 fi
+
+# ─── 17. Finalise and Set Recovery File Permissions ────────────────────────────
+chmod +x "$UNDO_FILE"
+chown "${TARGET_USER}:${TARGET_USER}" "$UNDO_FILE"
 
 echo " "
 if [ "${VERIFY_FAIL}" -eq 0 ]; then
@@ -683,11 +655,6 @@ else
   echo "[!] One or more critical verifications failed. Review output above before proceeding."
 fi
 
-# ─── 19. Finalise and Set Recovery File Permissions ────────────────────────────
-chmod +x "$UNDO_FILE"
-chown "${TARGET_USER}:${TARGET_USER}" "$UNDO_FILE"
-
-echo " "
 echo "==============================================================="
 echo " Build Environment Optimisation Complete"
 echo "==============================================================="

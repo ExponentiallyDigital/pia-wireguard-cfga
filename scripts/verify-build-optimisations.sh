@@ -1,5 +1,27 @@
-
 #!/bin/bash
+#
+# verify 8GB Ubuntu 26.04 laptop has optimal build settings
+#
+
+# ─── Environment & OS Validation ──────────────────────────────────────────────
+# Prevent execution on Windows native environments (Git Bash, Cygwin, MSYS)
+OS_TYPE="$(uname -s)"
+case "${OS_TYPE}" in
+  CYGWIN*|MINGW*|MSYS*|Windows_NT*)
+    echo "ERROR: This script is built exclusively for Linux."
+    echo "It cannot be executed within a Windows native shell (Git Bash/Cygwin/MSYS)."
+    exit 1
+    ;;
+esac
+
+# Prevent execution on Windows Subsystem for Linux (WSL)
+# WSL environments lack true loop devices, systemd-zram setups, and raw physical udev disk controls.
+if grep -qi 'microsoft' /proc/version 2>/dev/null || [ -n "${WSL_DISTRO_NAME:-}" ]; then
+  echo "ERROR: Windows Subsystem for Linux (WSL) detected."
+  echo "This tuner configures low-level Linux hardware optimizations (ZRAM, I/O schedulers, fstab mounts)."
+  echo "These configurations do not apply inside a WSL container managed by the Windows Host."
+  exit 1
+fi
 
 green() { echo -e "\e[32m✔ $1\e[0m"; }
 red()   { echo -e "\e[31m✖ $1\e[0m"; }
