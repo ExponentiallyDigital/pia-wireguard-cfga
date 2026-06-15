@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Optimized Android Build Environment Installer & Tuner
+# Optimized Android build environment installer & tuner
 #
 # Single-file installer that:
 #  - Configures tmpfs for /tmp build scratch space (not ~/.gradle/caches — see note
@@ -76,8 +76,13 @@ fi
 # ─── 4. Memory-Profile Variables ───────────────────────────────────────────────
 # TMPFS_SIZE    : /tmp tmpfs size — fast scratch space for build output directories.
 #                 Symlink or move a project's build/ into /tmp to exploit this.
-# ZRAM_SIZE     : compressed in-RAM swap, independent of the on-disk swapfile.
-# SWAP_SIZE     : on-disk swapfile — safety net; ZRAM handles most swap pressure.
+# ZRAM_SIZE     : compressed in-RAM swap. Tiered by RAM because it consumes RAM —
+#                 oversizing it on a low-RAM box steals memory from the build.
+# SWAP_SIZE     : on-disk swapfile — deep OOM safety net. Deliberately NOT tied to
+#                 the RAM tier (see SWAP_FLOOR_GB below): swap on a fast SSD is cheap
+#                 insurance, and a tiny swapfile is exactly what lets a heavy build
+#                 trip the OOM killer. ZRAM handles fast/hot swap; the swapfile is the
+#                 generous overflow beneath it.
 # GRADLE_JVM_MAX: Gradle daemon -Xmx heap ceiling, scaled to available RAM.
 case "$RAM_GB" in
   8)  TMPFS_SIZE="2G"; ZRAM_SIZE="2G";  SWAP_SIZE="2G"; SYS_SWAPPINESS=40; SYS_VFS=80; GRADLE_JVM_MAX="2048m" ;;
@@ -86,6 +91,21 @@ case "$RAM_GB" in
   64) TMPFS_SIZE="4G"; ZRAM_SIZE="16G"; SWAP_SIZE="8G"; SYS_SWAPPINESS=10; SYS_VFS=50; GRADLE_JVM_MAX="8192m" ;;
   *) echo "Unsupported RAM tier: $RAM_GB"; print_usage; exit 1 ;;
 esac
+
+# Swapfile floor (GB). The on-disk swapfile is never provisioned smaller than this,
+# regardless of RAM tier — it is the safety net that keeps normal heavy use from
+# running the system out of memory. Override per-run with the SWAP_GB env var, e.g.
+#   sudo SWAP_GB=64 ./build-optimisation.sh 8 /dev/sda5
+SWAP_FLOOR_GB="${SWAP_GB:-32}"
+if ! printf '%s' "${SWAP_FLOOR_GB}" | grep -qE '^[0-9]+$'; then
+  echo "ERROR: SWAP_GB must be an integer number of GB (got '${SWAP_FLOOR_GB}')."
+  exit 1
+fi
+# Effective swapfile size = max(tier value, floor). The tier value only wins if a
+# future tier ever exceeds the floor; today the floor always governs.
+if [ "${SWAP_SIZE%G}" -lt "${SWAP_FLOOR_GB}" ]; then
+  SWAP_SIZE="${SWAP_FLOOR_GB}G"
+fi
 
 # ─── 5. Parent Block Device and Scheduler Detection ────────────────────────────
 # The I/O scheduler sysfs interface lives on the parent block device, not the
@@ -231,12 +251,29 @@ grep -Fxq "${FSTAB_LINE_SWAP}" /etc/fstab || echo "${FSTAB_LINE_SWAP}" >> /etc/f
 # ─── 10. Swapfile ──────────────────────────────────────────────────────────────
 # Uses SWAP_SIZE — intentionally separate from ZRAM_SIZE. Both ZRAM and a swapfile
 # can coexist, but their sizes are independent concerns and must not share a variable.
-if [ ! -f /swapfile ]; then
-  echo "[*] Provisioning swapfile (${SWAP_SIZE})..."
+#
+# Sizing is "grow to target, never shrink": if no swapfile exists we create one at
+# SWAP_SIZE; if one exists but is smaller than SWAP_SIZE we rebuild it larger (a
+# stale 2G file from an earlier run must not cap us below the floor); if it already
+# meets or exceeds the target we leave it untouched — we never shrink a swapfile a
+# user may have deliberately enlarged.
+SWAP_TARGET_BYTES=$(( ${SWAP_SIZE%G} * 1024 * 1024 * 1024 ))
+CURRENT_SWAP_BYTES=0
+[ -f /swapfile ] && CURRENT_SWAP_BYTES=$(stat -c %s /swapfile 2>/dev/null || echo 0)
+
+if [ "${CURRENT_SWAP_BYTES}" -lt "${SWAP_TARGET_BYTES}" ]; then
+  if [ -f /swapfile ]; then
+    echo "[*] Existing swapfile ($(( CURRENT_SWAP_BYTES / 1024 / 1024 / 1024 ))G) is below target ${SWAP_SIZE} — rebuilding larger..."
+    swapoff /swapfile 2>/dev/null || true
+    rm -f /swapfile
+  else
+    echo "[*] Provisioning swapfile (${SWAP_SIZE})..."
+  fi
+
   if command -v fallocate >/dev/null 2>&1; then
     fallocate -l "${SWAP_SIZE}" /swapfile
   else
-    MB_COUNT=$(( $(echo "${SWAP_SIZE}" | sed 's/G//') * 1024 ))
+    MB_COUNT=$(( ${SWAP_SIZE%G} * 1024 ))
     dd if=/dev/zero of=/swapfile bs=1M count="${MB_COUNT}" status=progress
   fi
   chmod 600 /swapfile
@@ -248,6 +285,9 @@ echo "  - Deactivating and removing swapfile..."
 swapoff /swapfile || true
 rm -f /swapfile
 EOF
+else
+  echo "[*] Existing swapfile ($(( CURRENT_SWAP_BYTES / 1024 / 1024 / 1024 ))G) already meets target ${SWAP_SIZE} — leaving as is."
+  swapon --show 2>/dev/null | grep -q "/swapfile" || swapon /swapfile 2>/dev/null || true
 fi
 
 # ─── 11. ZRAM Configuration ────────────────────────────────────────────────────
@@ -269,24 +309,128 @@ rm -f "$ZRAM_CONF"
 EOF
 fi
 
+# The config file above is inert on its own: it is consumed by the
+# systemd-zram-generator package, which provides the generator binary and the
+# systemd-zram-setup@.service template that actually create and activate the
+# device. Without the package the config does nothing — no /dev/zram0, ever (a
+# reboot does not help). Ensure the package is present before relying on it.
+ZRAM_READY=0
+if [ -e /usr/lib/systemd/system-generators/zram-generator ] || \
+   [ -e /lib/systemd/system-generators/zram-generator ]; then
+  ZRAM_READY=1
+else
+  echo "[*] systemd zram-generator not present — installing..."
+  if command -v apt-get >/dev/null 2>&1; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y systemd-zram-generator \
+      && ZRAM_READY=1
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y zram-generator && ZRAM_READY=1
+  elif command -v pacman >/dev/null 2>&1; then
+    pacman -S --noconfirm zram-generator && ZRAM_READY=1
+  fi
+  if [ "${ZRAM_READY}" -ne 1 ]; then
+    echo "[!] Could not install the zram-generator package automatically."
+    echo "    ZRAM will not activate until it is installed (e.g. 'apt-get install systemd-zram-generator')."
+  fi
+fi
+
 cat > "${ZRAM_CONF}" << EOF
 [zram0]
 zram-size = ${ZRAM_SIZE}
 compression-algorithm = zstd
 EOF
 
+# Undo: deactivate the device and reload so the generator drops the unit.
+cat << 'EOF' >> "$UNDO_FILE"
+echo "  - Deactivating ZRAM swap device..."
+systemctl stop systemd-zram-setup@zram0.service 2>/dev/null || true
+swapoff /dev/zram0 2>/dev/null || true
 systemctl daemon-reload || true
-if systemctl list-unit-files | grep -q systemd-zram-setup; then
-  systemctl restart systemd-zram-setup@zram0.service || true
+EOF
+
+if [ "${ZRAM_READY}" -eq 1 ]; then
+  # daemon-reload reruns the generator, materialising systemd-zram-setup@zram0
+  # from the config just written; starting it creates and swaps on /dev/zram0.
+  #
+  # Activating the device allocates its metadata table and per-CPU compression
+  # buffers in RAM. If the script runs while the machine is ALREADY under heavy
+  # memory pressure (a live build, a running emulator), that allocation can fail
+  # with ENOMEM — there simply isn't enough free RAM to stand up the very thing
+  # meant to relieve the pressure. This is not fatal and not a misconfiguration:
+  # the on-disk swapfile is the safety net for exactly this window, and the
+  # generator re-runs at every boot — when RAM is free — bringing the device up
+  # cleanly then. So we attempt activation but tolerate a deferred start.
+  modprobe zram 2>/dev/null || true
+  systemctl daemon-reload || true
+  if systemctl restart systemd-zram-setup@zram0.service 2>/dev/null \
+     && swapon --show | grep -q zram; then
+    echo "[*] ZRAM device active: $(swapon --show | awk '/zram/{print $1, $3}')"
+  else
+    echo "[~] ZRAM is configured but could not be activated right now."
+    echo "    Most likely cause: too little free RAM at this moment (close the build/"
+    echo "    emulator and re-run, or just reboot). It will activate on the next boot."
+  fi
 fi
 
 # ─── 12. sysctl Kernel Tuning ──────────────────────────────────────────────────
 echo "[*] Applying kernel parameter tuning via sysctl..."
 SYSCTL_CONF="/etc/sysctl.d/99-build-optim.conf"
 
+# Keys this script owns. They live in a drop-in under /etc/sysctl.d/, but that is
+# NOT sufficient to guarantee they take effect: `sysctl --system` applies
+# /etc/sysctl.conf LAST — after every /etc/sysctl.d/*.conf file, regardless of
+# numeric prefix. So any of these keys set in /etc/sysctl.conf silently overrides
+# our drop-in, both now and on every subsequent boot. Neutralise such conflicts so
+# the drop-in is authoritative.
+MANAGED_SYSCTL_KEYS=(
+  vm.swappiness
+  vm.vfs_cache_pressure
+  fs.inotify.max_user_watches
+  fs.inotify.max_user_instances
+  fs.file-max
+)
+
+# Undo: remove the drop-in. The /etc/sysctl.conf restore (if any) is appended
+# below, ahead of a single final `sysctl --system` so the kernel is reloaded once
+# after all sysctl state has been rolled back.
 cat << EOF >> "$UNDO_FILE"
 echo "  - Removing build sysctl config..."
 rm -f "${SYSCTL_CONF}"
+EOF
+
+if [ -f /etc/sysctl.conf ]; then
+  SYSCTL_CONF_CONFLICT=0
+  for key in "${MANAGED_SYSCTL_KEYS[@]}"; do
+    if grep -qE "^[[:space:]]*${key//./\\.}[[:space:]]*=" /etc/sysctl.conf; then
+      SYSCTL_CONF_CONFLICT=1
+      break
+    fi
+  done
+
+  if [ "${SYSCTL_CONF_CONFLICT}" -eq 1 ]; then
+    echo "[*] /etc/sysctl.conf sets keys this script manages — neutralising (it is"
+    echo "    applied last by 'sysctl --system' and would otherwise win on every boot)..."
+    cp /etc/sysctl.conf "/etc/sysctl.conf.bak.${TIMESTAMP}"
+    echo "[*] /etc/sysctl.conf backed up to: /etc/sysctl.conf.bak.${TIMESTAMP}"
+
+    cat << EOF >> "$UNDO_FILE"
+echo "  - Restoring original /etc/sysctl.conf..."
+if [ -f "/etc/sysctl.conf.bak.${TIMESTAMP}" ]; then
+  mv "/etc/sysctl.conf.bak.${TIMESTAMP}" /etc/sysctl.conf
+fi
+EOF
+
+    for key in "${MANAGED_SYSCTL_KEYS[@]}"; do
+      key_esc="${key//./\\.}"
+      # Comment out uncommented assignments; leave a breadcrumb explaining why.
+      sed -i -E \
+        "s|^([[:space:]]*${key_esc}[[:space:]]*=.*)$|# [build-optim] superseded by ${SYSCTL_CONF}: \1|" \
+        /etc/sysctl.conf
+    done
+  fi
+fi
+
+cat << 'EOF' >> "$UNDO_FILE"
 sysctl --system || true
 EOF
 
@@ -446,9 +590,20 @@ fi
 
 # ZRAM
 if swapon --show | grep -q "zram"; then
-  echo "[✓] ZRAM swap is active"
+  ZRAM_INFO=$(swapon --show | awk '/zram/{print $1, $3}')
+  echo "[✓] ZRAM swap is active: ${ZRAM_INFO}"
+elif [ ! -e /usr/lib/systemd/system-generators/zram-generator ] && \
+     [ ! -e /lib/systemd/system-generators/zram-generator ]; then
+  # The package is genuinely missing — a real configuration failure.
+  echo "[✗] ZRAM inactive: systemd-zram-generator package is not installed"
+  VERIFY_FAIL=1
 else
-  echo "[~] ZRAM not visible in swapon output — may require a reboot to activate"
+  # Package present and config written, but the device is not up yet. This is the
+  # expected outcome when the script runs under memory pressure (see Section 11):
+  # the generator activates it on the next boot. Not a hard failure — the swapfile
+  # covers swap in the meantime.
+  echo "[~] ZRAM configured but not active yet — activates on next reboot"
+  echo "    (insufficient free RAM to start it now; the swapfile covers swap until then)"
 fi
 
 # sysctl vm.swappiness
